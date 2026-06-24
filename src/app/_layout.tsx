@@ -1,15 +1,39 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useColorScheme } from 'react-native';
+import { colors } from '@/core/theme';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+export default function RootLayout() {
+  const theme = useColorScheme() === 'dark' ? 'dark' : 'light';
+  const currentColors = colors[theme];
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <Stack
+      screenOptions={{
+        // Color de fondo general para todas las pantallas
+        contentStyle: { backgroundColor: currentColors.background },
+        // Ocultamos el header por defecto para personalizarlo nosotros
+        headerShown: false, 
+      }}
+    >
+      {/* Nuestro grupo de pestañas (Tabs) será la pantalla principal */}
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      
+      {/* Aquí registraremos pantallas individuales después, como el detalle de la meta */}
+      <Stack.Screen name="goal/[id]" />
+      
+      {/* Y aquí los modales que aparecen desde abajo */}
+      <Stack.Screen 
+        name="(modals)/add-money" 
+        options={{ presentation: 'modal' }} 
+      />
+      <Stack.Screen 
+        name="(modals)/withdraw-money" 
+        options={{ presentation: 'modal' }} 
+      />
+      <Stack.Screen 
+        name="(modals)/edit-goal" 
+        options={{ presentation: 'modal' }} 
+      />
+    </Stack>
   );
 }
