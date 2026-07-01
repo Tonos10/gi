@@ -1,41 +1,32 @@
 // app/(tabs)/_layout.tsx
-import { Tabs } from 'expo-router';
-import { useColorScheme, Text } from 'react-native';
-import { colors } from '@/core/theme';
+//
+// PUNTO 1 — Eliminamos la barra de tabs inferior.
+// Ocultamos el tab bar con display:'none' para no romper el enrutamiento de Expo Router.
+// El botón de Configuración se mueve al header de la pantalla principal.
+
+import { useAppTheme } from "@/hooks/useAppTheme";
+import { Tabs } from "expo-router";
 
 export default function TabLayout() {
-  const theme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  const currentColors = colors[theme];
+  const { current_colors } = useAppTheme();
 
   return (
     <Tabs
+      detachInactiveScreens={false}
       screenOptions={{
-        headerShown: false, // Ocultamos el encabezado superior
-        tabBarActiveTintColor: currentColors.brand, // Color cuando está seleccionado
-        tabBarInactiveTintColor: currentColors.textSecondary, // Color cuando no está seleccionado
-        tabBarStyle: {
-          backgroundColor: currentColors.surface,
-          borderTopColor: currentColors.border,
-          elevation: 0, // Quitamos la sombra en Android para un look más limpio
-          shadowOpacity: 0, // Quitamos la sombra en iOS
-        },
+        headerShown: false,
+        sceneStyle: { backgroundColor: current_colors.background },
+        freezeOnBlur: false,
+        lazy: false,
+        // PUNTO 1 — Ocultamos la barra inferior por completo / Hide bottom tab bar
+        tabBarStyle: { display: "none" },
+        // Mantenemos los colores dinámicos por si en el futuro se rehabilita
+        tabBarActiveTintColor: current_colors.brand,
+        tabBarInactiveTintColor: current_colors.textSecondary,
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Mis metas',
-          // Aquí después agregaremos un ícono real (ej. FontAwesome)
-          tabBarIcon: () => <Text>🎯</Text>, 
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Configuración',
-          tabBarIcon: () => <Text>⚙️</Text>,
-        }}
-      />
+      {/* Tab de metas — pantalla principal */}
+      <Tabs.Screen name="index" options={{ title: "Mis metas" }} />
     </Tabs>
   );
 }

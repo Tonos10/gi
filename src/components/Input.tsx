@@ -1,26 +1,24 @@
-// src/components/Input.tsx
+﻿// src/components/Input.tsx
 import {
   StyleSheet,
   Text,
   TextInput,
   TextInputProps,
-  useColorScheme,
   View,
 } from "react-native";
-import { colors } from "../core/theme";
+import { useAppTheme } from "../hooks/useAppTheme";
 
 interface InputProps extends TextInputProps {
   label?: string; // Etiqueta opcional arriba del input
 }
 
 export const Input = ({ label, style, ...props }: InputProps) => {
-  const theme = useColorScheme() === "dark" ? "dark" : "light";
-  const currentColors = colors[theme];
+  const { current_colors } = useAppTheme();
 
   return (
     <View style={styles.container}>
       {label && (
-        <Text style={[styles.label, { color: currentColors.textSecondary }]}>
+        <Text style={[styles.label, { color: current_colors.textSecondary }]}>
           {label}
         </Text>
       )}
@@ -28,13 +26,13 @@ export const Input = ({ label, style, ...props }: InputProps) => {
         style={[
           styles.input,
           {
-            backgroundColor: currentColors.surface,
-            color: currentColors.textPrimary,
-            borderColor: currentColors.border,
+            backgroundColor: current_colors.surface,
+            color: current_colors.textPrimary,
+            borderColor: current_colors.border,
           },
           style,
         ]}
-        placeholderTextColor={currentColors.textSecondary}
+        placeholderTextColor={current_colors.textSecondary}
         {...props}
       />
     </View>

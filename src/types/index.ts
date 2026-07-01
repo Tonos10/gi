@@ -4,6 +4,11 @@ export interface Goal {
   targetAmount: number;
   savedAmount: number;
   icon?: string;
+  photoUri?: string | null;
+  hasTargetDate?: boolean;
+  hasReminder?: boolean;
+  reminderDays?: number[];
+  createdAt?: string;
 }
 
 export type TransactionType = 'deposit' | 'withdrawal';

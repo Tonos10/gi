@@ -1,121 +1,201 @@
 // app/(tabs)/index.tsx
-import React, { useState, useMemo } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TextInput, 
-  useColorScheme, 
-  SafeAreaView, 
-  TouchableOpacity 
-} from 'react-native';
-import { useRouter } from 'expo-router';
+//
+// Pantalla principal de metas (home screen).
+// PUNTO 1 — Sin barra inferior. Botón de Configuración en esquina superior derecha.
+// PUNTO 3 — Tema dinámico: sin colores hardcodeados, responde a useColorScheme.
+// PUNTO 5 — GoalCard muestra photoUri guardada; fallback al ícono 🐷 predefinido.
 
-import { colors } from '../../core/theme';
-import { useAppStore } from '../../store/useAppStore';
+import { useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
+import {
+  FlatList,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import GoalCard from '../../components/GoalCard';
+import { useAppTheme } from '../../hooks/useAppTheme';
+import { useAppStore } from '../../store/useAppStore';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const theme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  const currentColors = colors[theme];
-  
-  // 1. Obtenemos las metas desde nuestro estado global (Zustand)
-  const goals = useAppStore((state) => state.goals);
-  
-  // 2. Estado local para lo que el usuario escribe en el buscador
-  const [searchQuery, setSearchQuery] = useState('');
 
-  // 3. Optimización: Filtramos las metas solo cuando 'goals' o 'searchQuery' cambian.
-  const filteredGoals = useMemo(() => {
-    return goals.filter(goal => 
-      goal.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [goals, searchQuery]);
+  // PUNTO 3 — Lectura dinámica del esquema de color del sistema / Dynamic color scheme
+  const { current_colors } = useAppTheme();
+
+  // Metas del estado global / Goals from global Zustand store
+  const goals = useAppStore((state) => state.goals);
+
+  // Estado del buscador / Search query local state
+  const [search_query, setSearchQuery] = useState('');
+
+  // Filtrado optimizado con useMemo / Memoized filter to avoid re-renders
+  const filtered_goals = useMemo(
+    () =>
+      goals.filter((goal) =>
+        goal.name.toLowerCase().includes(search_query.toLowerCase()),
+      ),
+    [goals, search_query],
+  );
 
   return (
-    // SafeAreaView evita que el contenido se superponga con la barra de estado (batería, hora) o el notch
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: currentColors.background }]}>
-      
-      {/* --- ENCABEZADO Y BUSCADOR --- */}
+    <SafeAreaView
+      style={[styles.safe_area, { backgroundColor: current_colors.background }]}
+    >
+      {/* ══════════════════════════════════════════════════════
+          ENCABEZADO — Título + Botón Configuración (headerRight)
+          PUNTO 1: Configuración en esquina superior derecha
+      ══════════════════════════════════════════════════════ */}
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: currentColors.textPrimary }]}>
+        <Text
+          style={[styles.header_title, { color: current_colors.textPrimary }]}
+        >
           Mis metas
         </Text>
-        
-        <View style={[styles.searchContainer, { backgroundColor: currentColors.surface, borderColor: currentColors.border }]}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput 
-            style={[styles.searchInput, { color: currentColors.textPrimary }]}
+
+        {/* PUNTO 1 — Botón Configuraciones movido al header superior derecho */}
+        <TouchableOpacity
+          id="btn-open-settings"
+          style={[
+            styles.settings_btn,
+            { backgroundColor: current_colors.surface, borderColor: current_colors.border },
+          ]}
+          onPress={() => router.push('/settings')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.settings_icon}>⚙️</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ══════════════════════════════════════════════════════
+          BUSCADOR
+      ══════════════════════════════════════════════════════ */}
+      <View style={styles.search_wrapper}>
+        <View
+          style={[
+            styles.search_container,
+            {
+              backgroundColor: current_colors.surface,
+              borderColor: current_colors.border,
+            },
+          ]}
+        >
+          <Text style={styles.search_icon}>🔍</Text>
+          <TextInput
+            id="input-search-goals"
+            style={[styles.search_input, { color: current_colors.textPrimary }]}
             placeholder="Buscar metas"
-            placeholderTextColor={currentColors.textSecondary}
-            value={searchQuery}
+            placeholderTextColor={current_colors.textSecondary}
+            value={search_query}
             onChangeText={setSearchQuery}
+            autoFocus={false}
           />
         </View>
       </View>
 
-      {/* --- LISTA DE METAS --- */}
+      {/* ══════════════════════════════════════════════════════
+          LISTA DE METAS
+          PUNTO 5 — GoalCard recibe photoUri para mostrar imagen real
+      ══════════════════════════════════════════════════════ */}
       <FlatList
-        data={filteredGoals}
+        data={filtered_goals}
         keyExtractor={(item) => item.id}
-        // renderItem se encarga de dibujar cada tarjeta individualmente
         renderItem={({ item }) => {
-          // Calculamos el porcentaje para pasarlo a la tarjeta (evitando dividir por cero)
-          const percentage = item.targetAmount > 0 
-            ? Math.min(Math.round((item.savedAmount / item.targetAmount) * 100), 100) 
-            : 0;
+          // Porcentaje de progreso / Progress percentage calculation
+          const pct =
+            item.targetAmount > 0
+              ? Math.min(
+                  Math.round((item.savedAmount / item.targetAmount) * 100),
+                  100,
+                )
+              : 0;
 
           return (
-            <GoalCard 
+            <GoalCard
               name={item.name}
               targetAmount={item.targetAmount}
-              percentage={percentage}
-              onPress={() => router.push(`/goal/${item.id}`)} 
+              percentage={pct}
+              // PUNTO 5 — Pasamos photoUri para mostrar imagen del usuario o el fallback
+              photoUri={item.photoUri ?? null}
+              onPress={() => router.push(`/goal/${item.id}`)}
             />
           );
         }}
-        contentContainerStyle={styles.listContent}
-        // Lo que se muestra si no hay metas guardadas o si la búsqueda no coincide
+        contentContainerStyle={styles.list_content}
+        showsVerticalScrollIndicator={false}
         ListEmptyComponent={() => (
-          <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyText, { color: currentColors.textSecondary }]}>
-              {searchQuery ? 'No se encontraron metas.' : 'No tienes metas aún. ¡Empieza ahorrando!'}
+          <View style={styles.empty_container}>
+            <Text style={styles.empty_emoji}>🎯</Text>
+            <Text
+              style={[styles.empty_text, { color: current_colors.textSecondary }]}
+            >
+              {search_query
+                ? 'No se encontraron metas.'
+                : 'No tienes metas aún.\n¡Empieza ahorrando!'}
             </Text>
           </View>
         )}
       />
 
-      {/* --- BOTÓN FLOTANTE (FAB) --- */}
-      <TouchableOpacity 
-        style={[styles.fab, { backgroundColor: currentColors.primary }]}
-        onPress={() => router.push('/goal/new-goal')} 
-        activeOpacity={0.8}
+      {/* ══════════════════════════════════════════════════════
+          FAB — Botón flotante para crear nueva meta
+      ══════════════════════════════════════════════════════ */}
+      <TouchableOpacity
+        id="btn-create-goal-fab"
+        style={[styles.fab, { backgroundColor: current_colors.primary }]}
+        onPress={() => router.push('/goal/new-goal')}
+        activeOpacity={0.85}
       >
-        <Text style={styles.fabText}>+</Text>
+        <Text style={styles.fab_text}>+</Text>
       </TouchableOpacity>
-      
     </SafeAreaView>
   );
 }
 
-// --- ESTILOS ---
+// ─── Estilos ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safeArea: {
+  safe_area: {
     flex: 1,
   },
+
+  // Encabezado superior / Top header
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
-  headerTitle: {
+  header_title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 16,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
-  searchContainer: {
+
+  // Botón Configuración — esquina superior derecha / Settings button top-right
+  settings_btn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  settings_icon: {
+    fontSize: 20,
+  },
+
+  // Buscador / Search bar
+  search_wrapper: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  search_container: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
@@ -123,46 +203,57 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: 44,
   },
-  searchIcon: {
+  search_icon: {
     fontSize: 16,
     marginRight: 8,
   },
-  searchInput: {
+  search_input: {
     flex: 1,
     fontSize: 16,
     height: '100%',
   },
-  listContent: {
-    paddingTop: 10,
-    paddingBottom: 80, // Espacio extra al final para que el FAB no tape la última tarjeta
+
+  // Lista / FlatList content
+  list_content: {
+    paddingTop: 4,
+    paddingBottom: 100, // Espacio para el FAB / Space for FAB
   },
-  emptyContainer: {
-    padding: 40,
+
+  // Estado vacío / Empty state
+  empty_container: {
+    padding: 48,
     alignItems: 'center',
   },
-  emptyText: {
+  empty_emoji: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  empty_text: {
     fontSize: 16,
     textAlign: 'center',
+    lineHeight: 24,
   },
+
+  // FAB — Botón flotante
   fab: {
     position: 'absolute',
-    bottom: 24, // Distancia desde abajo
-    right: 24,  // Distancia desde la derecha
+    bottom: 28,
+    right: 24,
     width: 60,
     height: 60,
-    borderRadius: 30, // Círculo perfecto
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    // Sombra
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 6,
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 8,
   },
-  fabText: {
+  fab_text: {
     fontSize: 32,
     color: '#FFFFFF',
-    lineHeight: 34, // Centra el "+" verticalmente en Android
+    lineHeight: 36,
+    fontWeight: '300',
   },
 });

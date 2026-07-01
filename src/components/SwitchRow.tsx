@@ -1,7 +1,6 @@
-// src/components/SwitchRow.tsx
-import React from 'react';
-import { View, Text, Switch, StyleSheet, useColorScheme } from 'react-native';
-import { colors } from '../core/theme';
+﻿// src/components/SwitchRow.tsx
+import { StyleSheet, Switch, Text, View } from "react-native";
+import { useAppTheme } from "../hooks/useAppTheme";
 
 interface SwitchRowProps {
   label: string;
@@ -10,20 +9,22 @@ interface SwitchRowProps {
 }
 
 export const SwitchRow = ({ label, value, onValueChange }: SwitchRowProps) => {
-  const theme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  const currentColors = colors[theme];
+  const { current_colors } = useAppTheme();
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: currentColors.textPrimary }]}>
+      <Text style={[styles.label, { color: current_colors.textPrimary }]}>
         {label}
       </Text>
       <Switch
         value={value}
         onValueChange={onValueChange}
-        // Colores del switch según el tema (el verde de la marca cuando está activo)
-        trackColor={{ false: currentColors.border, true: currentColors.brand }}
-        thumbColor={'#FFFFFF'}
+        // Colores del switch segÃºn el tema (el verde de la marca cuando estÃ¡ activo)
+        trackColor={{
+          false: current_colors.border,
+          true: current_colors.brand,
+        }}
+        thumbColor={"#FFFFFF"}
       />
     </View>
   );
@@ -31,13 +32,13 @@ export const SwitchRow = ({ label, value, onValueChange }: SwitchRowProps) => {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    justifyContent: 'space-between', // Empuja el texto a la izq. y el switch a la der.
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between", // Empuja el texto a la izq. y el switch a la der.
+    alignItems: "center",
     paddingVertical: 12,
   },
   label: {
     fontSize: 16,
-    fontWeight: '400',
+    fontWeight: "400",
   },
 });

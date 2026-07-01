@@ -1,37 +1,37 @@
-import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, useColorScheme } from 'react-native';
-import { colors } from '../core/theme';
+﻿import { StyleSheet, Text, TouchableOpacity } from "react-native";
+import { useAppTheme } from "../hooks/useAppTheme";
 
 interface Props {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'danger' | 'brand';
+  variant?: "primary" | "danger" | "brand";
   disabled?: boolean;
 }
 
-export const Button = ({ title, onPress, variant = 'brand', disabled = false }: Props) => {
-  const theme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  const currentColors = colors[theme];
+export const Button = ({
+  title,
+  onPress,
+  variant = "brand",
+  disabled = false,
+}: Props) => {
+  const { current_colors } = useAppTheme();
 
   const getBackgroundColor = () => {
-    if (disabled) return currentColors.border;
+    if (disabled) return current_colors.border;
     switch (variant) {
-      case 'primary':
-        return currentColors.primary;
-      case 'danger':
-        return currentColors.danger;
-      case 'brand':
+      case "primary":
+        return current_colors.primary;
+      case "danger":
+        return current_colors.danger;
+      case "brand":
       default:
-        return currentColors.brand;
+        return current_colors.brand;
     }
   };
 
   return (
     <TouchableOpacity
-      style={[
-        styles.button,
-        { backgroundColor: getBackgroundColor() }
-      ]}
+      style={[styles.button, { backgroundColor: getBackgroundColor() }]}
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.8}
@@ -45,14 +45,14 @@ const styles = StyleSheet.create({
   button: {
     height: 56,
     borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 24,
-    width: '100%',
+    width: "100%",
   },
   text: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
 });

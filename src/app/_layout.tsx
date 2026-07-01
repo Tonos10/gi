@@ -1,39 +1,89 @@
-import { Stack } from 'expo-router';
-import { useColorScheme } from 'react-native';
-import { colors } from '@/core/theme';
+import { Stack } from "expo-router";
+import { LogBox, View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { useAppTheme } from "../hooks/useAppTheme";
+
+// Esto ignorará específicamente ese aviso de deprecación
+LogBox.ignoreLogs(["ImagePicker.MediaTypeOptions"]);
 export default function RootLayout() {
-  const theme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  const currentColors = colors[theme];
+  const { current_colors } = useAppTheme();
 
   return (
-    <Stack
-      screenOptions={{
-        // Color de fondo general para todas las pantallas
-        contentStyle: { backgroundColor: currentColors.background },
-        // Ocultamos el header por defecto para personalizarlo nosotros
-        headerShown: false, 
-      }}
-    >
-      {/* Nuestro grupo de pestañas (Tabs) será la pantalla principal */}
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      
-      {/* Aquí registraremos pantallas individuales después, como el detalle de la meta */}
-      <Stack.Screen name="goal/[id]" />
-      
-      {/* Y aquí los modales que aparecen desde abajo */}
-      <Stack.Screen 
-        name="(modals)/add-money" 
-        options={{ presentation: 'modal' }} 
-      />
-      <Stack.Screen 
-        name="(modals)/withdraw-money" 
-        options={{ presentation: 'modal' }} 
-      />
-      <Stack.Screen 
-        name="(modals)/edit-goal" 
-        options={{ presentation: 'modal' }} 
-      />
-    </Stack>
+    <View style={{ flex: 1, backgroundColor: current_colors.background }}>
+      <SafeAreaProvider>
+        <Stack
+          screenOptions={{
+            contentStyle: {
+              backgroundColor: current_colors.background,
+            },
+            headerShown: false,
+          }}
+        >
+          {/* Pantallas principales */}
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+
+          {/* Pantallas individuales */}
+          <Stack.Screen
+            name="goal/[id]"
+            options={{
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: current_colors.background },
+              freezeOnBlur: false,
+            }}
+          />
+
+          {/* Configuraciones */}
+          <Stack.Screen
+            name="settings"
+            options={{
+              animation: "slide_from_right",
+              headerShown: false,
+              contentStyle: { backgroundColor: current_colors.background },
+              freezeOnBlur: false,
+            }}
+          />
+
+          {/* Pantalla Nueva Meta — presentada como modal con overlay transparente */}
+          <Stack.Screen
+            name="goal/new-goal"
+            options={{
+              presentation: "transparentModal",
+              animation: "slide_from_bottom",
+              headerShown: false,
+              contentStyle: { backgroundColor: "transparent" },
+            }}
+          />
+
+          {/* Modales */}
+          <Stack.Screen
+            name="(modals)/add-money"
+            options={{
+              presentation: "transparentModal",
+              animation: "fade",
+              contentStyle: { backgroundColor: "transparent" },
+            }}
+          />
+
+          <Stack.Screen
+            name="(modals)/withdraw-money"
+            options={{
+              presentation: "transparentModal",
+              animation: "fade",
+              contentStyle: { backgroundColor: "transparent" },
+            }}
+          />
+
+          <Stack.Screen
+            name="(modals)/edit-goal"
+            options={{
+              presentation: "transparentModal",
+              animation: "fade",
+              contentStyle: { backgroundColor: "transparent" },
+            }}
+          />
+        </Stack>
+      </SafeAreaProvider>
+    </View>
   );
 }
