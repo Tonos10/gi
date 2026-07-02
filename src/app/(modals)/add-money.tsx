@@ -1,7 +1,7 @@
-// app/(modals)/add-money.tsx
+﻿// app/(modals)/add-money.tsx
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import { TransactionModal } from "../../components/TransactionModal";
+import { ModalTransaccion } from '../../components/ModalTransaccion';
 
 export default function AddMoneyModal() {
   const router = useRouter();
@@ -17,7 +17,7 @@ export default function AddMoneyModal() {
   };
 
   return (
-    <TransactionModal
+    <ModalTransaccion
       isVisible={isVisible}
       onClose={handleClose}
       type="deposit"

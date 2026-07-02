@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
-import { LogBox, View } from "react-native";
+import { LogBox } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { useAppTheme } from "../hooks/useAppTheme";
@@ -10,7 +11,9 @@ export default function RootLayout() {
   const { current_colors } = useAppTheme();
 
   return (
-    <View style={{ flex: 1, backgroundColor: current_colors.background }}>
+    <GestureHandlerRootView
+      style={{ flex: 1, backgroundColor: current_colors.background }}
+    >
       <SafeAreaProvider>
         <Stack
           screenOptions={{
@@ -44,12 +47,12 @@ export default function RootLayout() {
             }}
           />
 
-          {/* Pantalla Nueva Meta — presentada como modal con overlay transparente */}
+          {/* Pantalla Nueva Meta — Bottom Sheet animado con Reanimated */}
           <Stack.Screen
             name="goal/new-goal"
             options={{
               presentation: "transparentModal",
-              animation: "slide_from_bottom",
+              animation: "none", // La animación de entrada/salida la gestiona Reanimated internamente
               headerShown: false,
               contentStyle: { backgroundColor: "transparent" },
             }}
@@ -84,6 +87,6 @@ export default function RootLayout() {
           />
         </Stack>
       </SafeAreaProvider>
-    </View>
+    </GestureHandlerRootView>
   );
 }

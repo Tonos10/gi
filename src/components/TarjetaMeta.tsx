@@ -1,4 +1,4 @@
-// src/components/GoalCard.tsx
+﻿// src/components/GoalCard.tsx
 //
 // Tarjeta de meta financiera en la lista principal.
 // PUNTO 3 â€” Tema dinÃ¡mico: sin colores hardcodeados.
@@ -10,7 +10,7 @@ import { useAppTheme } from "../hooks/useAppTheme";
 import { useAppStore } from "../store/useAppStore";
 
 // â”€â”€â”€ Props del componente â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-interface GoalCardProps {
+interface TarjetaMetaProps {
   name: string;
   targetAmount: number;
   percentage: number;
@@ -21,7 +21,7 @@ interface GoalCardProps {
 
 // â”€â”€â”€ Componente memoizado / Memoized component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const GoalCard = memo(
-  ({ name, targetAmount, percentage, onPress, photoUri }: GoalCardProps) => {
+  ({ name, targetAmount, percentage, onPress, photoUri }: TarjetaMetaProps) => {
     // PUNTO 3 â€” Lectura dinÃ¡mica del esquema de color / Dynamic color scheme
     const { current_colors, theme } = useAppTheme();
     const currencySymbol = useAppStore((state) => state.settings.currencySymbol);

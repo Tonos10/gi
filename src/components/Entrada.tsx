@@ -3,16 +3,17 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TextInputProps,
+  TextEntradaProps,
   View,
 } from "react-native";
 import { useAppTheme } from "../hooks/useAppTheme";
 
-interface InputProps extends TextInputProps {
+interface EntradaProps extends TextEntradaProps {
   label?: string; // Etiqueta opcional arriba del input
 }
 
-export const Input = ({ label, style, ...props }: InputProps) => {
+// Componente: Entrada - Campo de entrada de texto genÃ©rico
+export const Entrada = ({ label, style, ...props }: EntradaProps) => {
   const { current_colors } = useAppTheme();
 
   return (

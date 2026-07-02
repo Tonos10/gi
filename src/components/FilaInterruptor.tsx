@@ -2,13 +2,14 @@
 import { StyleSheet, Switch, Text, View } from "react-native";
 import { useAppTheme } from "../hooks/useAppTheme";
 
-interface SwitchRowProps {
+interface FilaInterruptorProps {
   label: string;
   value: boolean;
   onValueChange: (newValue: boolean) => void;
 }
 
-export const SwitchRow = ({ label, value, onValueChange }: SwitchRowProps) => {
+// Componente: FilaInterruptor - Fila con interruptor de encendido/apagado
+export const FilaInterruptor = ({ label, value, onValueChange }: FilaInterruptorProps) => {
   const { current_colors } = useAppTheme();
 
   return (

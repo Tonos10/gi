@@ -16,7 +16,8 @@ import { CustomInput } from "../../components/modal/CustomInput";
 import { DangerButton } from "../../components/modal/DangerButton";
 import { ModalCard } from "../../components/modal/ModalCard";
 import { ModalHeader } from "../../components/modal/ModalHeader";
-import { SwitchRow } from "../../components/SwitchRow";
+import { FilaInterruptor } from '../../components/FilaInterruptor';
+import { scheduleGoalNotifications, cancelGoalNotifications } from "../../core/notifications";
 import { useAppTheme } from "../../hooks/useAppTheme";
 import { useAppStore } from "../../store/useAppStore";
 
@@ -106,6 +107,19 @@ export default function EditGoalModal() {
       hasReminder: recordatorio_activo,
       reminderDays: dias_seleccionados,
     });
+    
+    // Configurar notificaciones actualizadas
+    if (recordatorio_activo && dias_seleccionados.length > 0) {
+      const reminderTime = useAppStore.getState().settings.reminderTime;
+      scheduleGoalNotifications(
+        current_goal.id,
+        meta_nombre.trim(),
+        dias_seleccionados,
+        reminderTime
+      ).catch(console.error);
+    } else {
+      cancelGoalNotifications(current_goal.id).catch(console.error);
+    }
 
     close_modal_handler();
   };
@@ -120,9 +134,12 @@ export default function EditGoalModal() {
           text: "Eliminar",
           style: "destructive",
           onPress: () => {
-            delete_goal(current_goal.id);
             set_modal_visible(false);
-            setTimeout(() => router.replace("/"), 250);
+            router.navigate('/(tabs)');
+            cancelGoalNotifications(current_goal.id).catch(console.error);
+            setTimeout(() => {
+              delete_goal(current_goal.id);
+            }, 300);
           },
         },
       ],
@@ -257,7 +274,7 @@ export default function EditGoalModal() {
             { borderColor: current_colors.border },
           ]}
         >
-          <SwitchRow
+          <FilaInterruptor
             label="Recuérdame ahorrar"
             value={recordatorio_activo}
             onValueChange={set_recordatorio_activo}

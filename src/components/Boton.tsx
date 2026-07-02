@@ -8,7 +8,8 @@ interface Props {
   disabled?: boolean;
 }
 
-export const Button = ({
+// Componente: Boton - BotÃ³n principal de la aplicaciÃ³n
+export const Boton = ({
   title,
   onPress,
   variant = "brand",

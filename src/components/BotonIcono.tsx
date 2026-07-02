@@ -17,19 +17,20 @@ const colors = {
   },
 } as const;
 
-interface IconButtonProps {
+interface BotonIconoProps {
   label: string;
   icon: string; // Temporalmente usaremos caracteres, luego podemos poner @expo/vector-icons
   colorKey: "primary" | "danger" | "brand"; // Elegimos verde, rojo o azul de nuestro theme
   onPress: () => void;
 }
 
-export const IconButton = ({
+// Componente: BotonIcono - BotÃ³n con icono
+export const BotonIcono = ({
   label,
   icon,
   colorKey,
   onPress,
-}: IconButtonProps) => {
+}: BotonIconoProps) => {
   const { current_colors } = useAppTheme();
 
   return (

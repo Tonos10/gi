@@ -1,4 +1,4 @@
-/*import { BlurView } from "expo-blur";
+﻿/*import { BlurView } from "expo-blur";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -17,7 +17,8 @@ interface deposit_modal_props {
   on_save?: (amount: number, note: string) => void;
 }
 
-export default function DepositModal({
+export default // Componente: ModalDeposito - Modal para depositar dinero
+unction ModalDeposito({
   is_visible,
   on_close,
   on_save,

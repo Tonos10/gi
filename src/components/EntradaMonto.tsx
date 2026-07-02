@@ -7,7 +7,8 @@ interface Props {
   onChangeText: (text: string) => void;
 }
 
-export const AmountInput = ({ value, onChangeText }: Props) => {
+// Componente: EntradaMonto - Entrada de monto monetario
+export const EntradaMonto = ({ value, onChangeText }: Props) => {
   const { current_colors } = useAppTheme();
   const currencySymbol = useAppStore((state) => state.settings.currencySymbol);
 

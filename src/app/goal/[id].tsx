@@ -5,7 +5,7 @@
 // Punto 2 → Rediseño completo con tema claro y oscuro dinámico usando current_colors
 // Punto 4 → Variables en snake_case, comentarios bilingüe inglés/español
 
-import { GlassView } from "expo-glass-effect";
+
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
@@ -18,8 +18,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { CircularProgress } from "../../components/CircularProgress";
-import { TransactionItem } from "../../components/TransactionItem";
+import { ProgresoCircular } from '../../components/ProgresoCircular';
+import { ElementoTransaccion } from '../../components/ElementoTransaccion';
 import { useAppTheme } from "../../hooks/useAppTheme";
 import { useAppStore } from "../../store/useAppStore";
 
@@ -205,15 +205,11 @@ export default function GoalDetailScreen() {
             </TouchableOpacity>
 
             <View style={styles.hero_text_content}>
-              <GlassView
-                style={styles.hero_title_backdrop}
-                glassEffectStyle={{
-                  style: "clear",
-                  animate: true,
-                  animationDuration: 0.3,
-                }}
-                colorScheme="dark"
-                tintColor="rgba(0,0,0,0.34)"
+              <View
+                style={[
+                  styles.hero_title_backdrop,
+                  { backgroundColor: "rgba(0,0,0,0.34)" }
+                ]}
               >
                 <Text style={[styles.hero_title, { color: "#FFFFFF" }]}>
                   {goal.name}
@@ -226,7 +222,7 @@ export default function GoalDetailScreen() {
                 >
                   Meta de ahorro
                 </Text>
-              </GlassView>
+              </View>
             </View>
           </ImageBackground>
         ) : (
@@ -252,18 +248,11 @@ export default function GoalDetailScreen() {
             </View>
 
             <View style={styles.hero_text_content}>
-              <GlassView
+              <View
                 style={[
                   styles.hero_title_backdrop,
                   styles.hero_title_backdrop_solid,
                 ]}
-                glassEffectStyle={{
-                  style: "regular",
-                  animate: true,
-                  animationDuration: 0.25,
-                }}
-                colorScheme={theme === "dark" ? "dark" : "light"}
-                tintColor="rgba(255,255,255,0.14)"
               >
                 <Text
                   style={[
@@ -281,7 +270,7 @@ export default function GoalDetailScreen() {
                 >
                   Meta de ahorro
                 </Text>
-              </GlassView>
+              </View>
             </View>
           </View>
         )}
@@ -290,14 +279,20 @@ export default function GoalDetailScreen() {
         <View style={styles.details_card}>
           <Text style={styles.card_amount_main}>{saved_formatted}</Text>
           <Text style={styles.card_amount_sub}>
-            guardado de{" "}
+            meta de{" "}
             <Text style={styles.card_amount_sub_bold}>{target_formatted}</Text>
           </Text>
+
+          {goal.hasTargetDate && goal.targetDate && (
+            <Text style={styles.target_date_text}>
+              📅 Para el {new Date(goal.targetDate).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}
+            </Text>
+          )}
 
           <View style={styles.card_divider} />
 
           <View style={styles.chart_wrapper}>
-            <CircularProgress
+            <ProgresoCircular
               percentage={progress_pct}
               size={180}
               strokeWidth={14}
@@ -380,7 +375,7 @@ export default function GoalDetailScreen() {
           ) : (
             <View style={styles.tx_list_wrapper}>
               {transactions_to_show.map((tx_item) => (
-                <TransactionItem key={tx_item.id} transaction={tx_item} />
+                <ElementoTransaccion key={tx_item.id} transaction={tx_item} />
               ))}
             </View>
           )}
@@ -557,6 +552,12 @@ const get_styles = (theme_colors: any) =>
     card_amount_sub_bold: {
       fontWeight: "700",
       color: theme_colors.textPrimary,
+    },
+    target_date_text: {
+      fontSize: 13,
+      color: theme_colors.textSecondary,
+      fontWeight: "500",
+      marginTop: 6,
     },
     card_divider: {
       width: "100%",

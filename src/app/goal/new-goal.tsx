@@ -1,13 +1,36 @@
 // src/app/goal/new-goal.tsx
-import DateTimePicker from "@react-native-community/datetimepicker";
+/**
+ * NewGoalScreen — Bottom Sheet interactivo con dos snap points.
+ *
+ * Arquitectura de animación:
+ * ┌─────────────────────────────────────────────────────────────┐
+ * │  View screen (flex:1, transparente — gestionado por expo-router)
+ * │  ├─ Animated.View backdrop (absoluteFill, oscurece la vista anterior)
+ * │  │   └─ TouchableOpacity (tocar fondo = cerrar)
+ * │  └─ Animated.View panel (bottom sheet, height = SCREEN_H)
+ * │      ├─ GestureDetector → área del drag handle
+ * │      ├─ Header: [Cancelar] [Nueva Meta] [Guardar]
+ * │      └─ ScrollView (formulario completo)
+ * └─────────────────────────────────────────────────────────────┘
+ *
+ * Snap points:
+ *   SNAP_HALF = SCREEN_H * 0.52 → abre al 48% de la pantalla (inicial)
+ *   SNAP_FULL = 0              → expande al 100% al deslizar arriba
+ *
+ * Tecnología de animación: react-native-reanimated (UI thread)
+ * Tecnología de gestos:    react-native-gesture-handler (GestureDetector + Gesture.Pan)
+ *
+ * No se usa @gorhom/bottom-sheet para evitar incompatibilidades con
+ * Reanimated ^4.3.1 que usa la nueva API de Worklets.
+ */
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -15,43 +38,67 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  Extrapolation,
+  interpolate,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  type SharedValue,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { SwitchRow } from "../../components/SwitchRow";
+import { CalendarioMeta } from "../../components/CalendarioMeta";
+import { FilaInterruptor } from "../../components/FilaInterruptor";
 import { useAppTheme } from "../../hooks/useAppTheme";
+import { useCalendar } from "../../hooks/useCalendar";
 import { useGoalImagePicker } from "../../hooks/useGoalImagePicker";
+import { scheduleGoalNotifications } from "../../core/notifications";
 import { useAppStore } from "../../store/useAppStore";
+
+// ─── Constantes de animación ──────────────────────────────────────────────────
+
+const SPRING_CONFIG = {
+  damping: 30,
+  stiffness: 200,
+  mass: 0.85,
+  overshootClamping: false,
+};
+
+
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function NewGoalScreen() {
   const router = useRouter();
+  const { height: SCREEN_H } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const { current_colors } = useAppTheme();
 
-  // ── Theme Dinámico ──
-  const { theme, current_colors } = useAppTheme();
-  const styles = useMemo(
-    () => get_styles(current_colors, theme),
-    [current_colors, theme],
-  );
+  // ── Snap points (calculados una vez por render de raíz) ────────────────────
+  const SNAP_HALF = SCREEN_H * 0.52; // Panel inicial al ~48% de la pantalla
+  const SNAP_FULL = 0; // Panel expandido al 100%
+  const CLOSE_THRESHOLD = SCREEN_H * 0.68; // Arrastra > 68% → cerrar
 
+  // ── Store ──────────────────────────────────────────────────────────────────
   const add_goal = useAppStore((state) => state.addGoal);
   const currency_symbol = useAppStore((state) => state.settings.currencySymbol);
 
-  // ── States (Strict snake_case) ──
-  const [modal_visible, set_modal_visible] = useState(true);
+  // ── Form state ─────────────────────────────────────────────────────────────
   const [meta_nombre, set_meta_nombre] = useState("");
   const [meta_ahorro, set_meta_ahorro] = useState("");
   const [ahorro_inicial, set_ahorro_inicial] = useState("");
-
-  // States del recordatorio
   const [recordatorio_activo, set_recordatorio_activo] = useState(false);
   const [dias_seleccionados, set_dias_seleccionados] = useState<number[]>([]);
-
-  // States de Fecha Objetivo (Nueva Funcionalidad)
   const [tiene_fecha_objetivo, set_tiene_fecha_objetivo] = useState(false);
-  const [fecha_objetivo, set_fecha_objetivo] = useState(new Date());
-  const [mostrar_calendario, set_mostrar_calendario] = useState(false);
+  const [fecha_objetivo, set_fecha_objetivo] = useState<Date | null>(null);
 
-  // ── Hooks ──
+  // ── Image picker ───────────────────────────────────────────────────────────
   const {
     photoUri: foto_uri,
     isLoading: is_image_loading,
@@ -59,505 +106,728 @@ export default function NewGoalScreen() {
     removeImage: remove_image,
   } = useGoalImagePicker();
 
-  // ── Handlers ──
-  const close_modal_handler = () => {
-    set_modal_visible(false);
-    setTimeout(() => router.back(), 250);
-  };
+  // ── Calendar hook ──────────────────────────────────────────────────────────
+  const calendar = useCalendar(fecha_objetivo, set_fecha_objetivo);
 
-  const fecha_objetivo_change_handler = (
-    _event: unknown,
-    selected_date?: Date,
-  ) => {
-    if (!selected_date) return;
-    if (Platform.OS !== "ios") {
-      set_mostrar_calendario(false);
-    }
-    set_fecha_objetivo(selected_date);
-  };
+  // ── Estado de apertura para el Bottom Sheet ─────────────────────────────────
+  const [isClosing, setIsClosing] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
 
-  const dismiss_calendario_handler = () => {
-    set_mostrar_calendario(false);
-  };
+  // ── Shared values para animación (UI thread) ───────────────────────────────
+  const translateY = useSharedValue(SCREEN_H); // Empieza fuera de pantalla
 
-  const toggle_dia_handler = (dia: number) => {
-    if (dias_seleccionados.includes(dia)) {
-      set_dias_seleccionados(dias_seleccionados.filter((d) => d !== dia));
-    } else {
-      set_dias_seleccionados(
-        [...dias_seleccionados, dia].sort((a, b) => a - b),
-      );
-    }
-  };
+  // ── Estado del teclado (JS thread) ────────────────────────────────────────
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
-  const guardar_meta_handler = () => {
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const navigateBack = useCallback(() => router.back(), [router]);
+
+  /**
+   * Anima el cierre del bottom sheet y luego navega hacia atrás.
+   */
+  const closeSheet = useCallback(() => {
+    if (isClosing) return;
+    setIsClosing(true);
+    translateY.value = withTiming(SCREEN_H, { duration: 300 }, (finished) => {
+      if (finished) runOnJS(navigateBack)();
+    });
+  }, [SCREEN_H, navigateBack, translateY, isClosing]);
+
+  const toggle_dia_handler = useCallback((dia: number) => {
+    set_dias_seleccionados((prev) =>
+      prev.includes(dia)
+        ? prev.filter((d) => d !== dia)
+        : [...prev, dia].sort((a, b) => a - b),
+    );
+  }, []);
+
+  const guardar_meta_handler = async () => {
     if (!meta_nombre.trim() || !meta_ahorro.trim()) {
       Alert.alert(
         "Error",
-        "Por favor, ingresa el nombre y tu objetivo financiero.",
+        "Por favor, ingresa el nombre y el objetivo financiero.",
       );
       return;
     }
 
+    const id = Date.now().toString();
     add_goal({
-      id: Date.now().toString(),
+      id,
       name: meta_nombre.trim(),
       targetAmount: parseFloat(meta_ahorro) || 0,
       savedAmount: parseFloat(ahorro_inicial) || 0,
       icon: "🐷",
       photoUri: foto_uri ?? null,
       hasTargetDate: tiene_fecha_objetivo,
+      targetDate: tiene_fecha_objetivo && fecha_objetivo ? fecha_objetivo.toISOString() : undefined,
       hasReminder: recordatorio_activo,
       reminderDays: dias_seleccionados,
       createdAt: new Date().toISOString(),
     });
+    
+    // Programar notificaciones si están activas
+    if (recordatorio_activo && dias_seleccionados.length > 0) {
+      const reminderTime = useAppStore.getState().settings.reminderTime;
+      await scheduleGoalNotifications(
+        id, 
+        meta_nombre.trim(), 
+        dias_seleccionados, 
+        reminderTime
+      );
+    }
 
-    close_modal_handler();
+    closeSheet();
   };
 
-  // ── Renders Secundarios ──
-  const render_dias_grid = () => {
-    const days_array = Array.from({ length: 31 }, (_, i) => i + 1);
+  // ── Gesture del drag handle (corre en el UI thread) ───────────────────────
+  const savedY = useSharedValue(SNAP_HALF);
 
-    return (
-      <View style={styles.grid_container}>
-        {days_array.map((dia) => {
-          const is_selected = dias_seleccionados.includes(dia);
-          return (
-            <TouchableOpacity
-              key={dia}
+  /**
+   * Pan Gesture aplicado SOLO al área del drag handle.
+   * Al mantenerlo separado del ScrollView evitamos conflictos de scroll.
+   *
+   * Lógica de snap:
+   *  - velocityY > 600 o posición > CLOSE_THRESHOLD → cerrar
+   *  - velocityY < -300 o posición < SNAP_HALF * 0.65 → expandir al 100%
+   *  - cualquier otro caso → volver al 50%
+   */
+  const panGesture = Gesture.Pan()
+    .onBegin(() => {
+      savedY.value = translateY.value;
+    })
+    .onUpdate((event) => {
+      const nextY = savedY.value + event.translationY;
+      translateY.value = Math.max(0, nextY);
+    })
+    .onEnd((event) => {
+      const currentY = translateY.value;
+      if (event.velocityY > 600 || currentY > CLOSE_THRESHOLD) {
+        translateY.value = withTiming(
+          SCREEN_H,
+          { duration: 300 },
+          (finished) => {
+            if (finished) runOnJS(navigateBack)();
+          },
+        );
+      } else if (event.velocityY < -300 || currentY < SNAP_HALF * 0.65) {
+        translateY.value = withSpring(0, SPRING_CONFIG);
+      } else {
+        translateY.value = withSpring(SNAP_HALF, SPRING_CONFIG);
+      }
+    });
+
+  // ── Animación Reactiva (State-Driven) ──────────────────────────────────────
+  useEffect(() => {
+    if (isClosing) return;
+    
+    // Si el teclado está abierto, expandir al 100%. Si no, ir a SNAP_HALF.
+    const targetY = isKeyboardVisible ? SNAP_FULL : SNAP_HALF;
+    
+    // Retraso ligero para permitir que la UI de Android se estabilice al volver de la cámara
+    const timer = setTimeout(() => {
+      // TRUCO VITAL: Si el panel ya estaba en el destino (ej. a la mitad de la pantalla),
+      // Reanimated "optimiza" y decide no animar ni repintar nada. Pero como Android
+      // desincronizó la vista al abrir la galería, necesitamos FORZAR el repintado.
+      // Modificamos el valor por 1 píxel imperceptible para obligar a Reanimated a despertar.
+      if (Math.abs(translateY.value - targetY) < 2) {
+        translateY.value = targetY + 1;
+      }
+      
+      translateY.value = withSpring(targetY, SPRING_CONFIG);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [isClosing, isKeyboardVisible, SNAP_HALF, SNAP_FULL, translateY, refreshTick]);
+
+  // ── Listener del teclado ───────────────────────────────────────────────────
+  useEffect(() => {
+    const SHOW_EV = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const HIDE_EV = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const onShow = Keyboard.addListener(SHOW_EV, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+      setIsKeyboardVisible(true);
+    });
+
+    const onHide = Keyboard.addListener(HIDE_EV, () => {
+      setKeyboardHeight(0);
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      onShow.remove();
+      onHide.remove();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Estilos animados ───────────────────────────────────────────────────────
+  const panelAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  /**
+   * Backdrop semitransparente: la opacidad se DERIVA de la posición del panel
+   * usando interpolate, por lo que nunca necesita un shared value propio.
+   *
+   * translateY = SNAP_FULL (0)   → opacidad 0.45  (pantalla anterior visible al 55%)
+   * translateY = SNAP_HALF        → opacidad 0.30  (pantalla anterior muy visible)
+   * translateY = SCREEN_H (cerrado) → opacidad 0  (invisible)
+   *
+   * Con un máximo de 0.45, el contenido de la pantalla anterior SIEMPRE
+   * se puede apreciar a través del fondo, en lugar de volverse negro.
+   */
+  const backdropAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      translateY.value,
+      [SNAP_FULL, SNAP_HALF, SCREEN_H],
+      [0.45, 0.28, 0],
+      Extrapolation.CLAMP,
+    ),
+  }));
+
+  /**
+   * Padding superior del área del handle.
+   * Cuando el panel está en SNAP_HALF: 0px extra (no se superpone con status bar).
+   * Cuando el panel alcanza SNAP_FULL (translateY = 0): se añaden insets.top + 4
+   * para no quedar debajo de la barra de estado / notch.
+   */
+  const handleAreaAnimatedStyle = useAnimatedStyle(() => ({
+    paddingTop: interpolate(
+      translateY.value,
+      [SNAP_FULL, Math.max(insets.top, 24)],
+      [insets.top + 6, 6],
+      Extrapolation.CLAMP,
+    ),
+  }));
+
+  // ── Días del mes memoizados ────────────────────────────────────────────────
+  const days_array = useMemo(
+    () => Array.from({ length: 31 }, (_, i) => i + 1),
+    [],
+  );
+
+  // ── Estilos que dependen del tema (memoizados) ─────────────────────────────
+  const cardStyle = useMemo(
+    () => ({
+      backgroundColor: current_colors.surface,
+      borderColor: current_colors.border,
+    }),
+    [current_colors.surface, current_colors.border],
+  );
+
+  // ── JSX ────────────────────────────────────────────────────────────────────
+  return (
+    <View style={styles.screen}>
+      {/* ── Backdrop (fondo oscuro semitransparente) ──────────────── */}
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          styles.backdrop,
+          backdropAnimatedStyle,
+        ]}
+        pointerEvents="box-none"
+      >
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          onPress={closeSheet}
+          activeOpacity={1}
+        />
+      </Animated.View>
+
+      {/* ── Panel (Bottom Sheet) ───────────────────────────────────── */}
+      <Animated.View
+        style={[
+          styles.panel,
+          {
+            height: SCREEN_H,
+            backgroundColor: current_colors.surface,
+            shadowColor: current_colors.shadow_color,
+          },
+          panelAnimatedStyle,
+        ]}
+      >
+        {/* ── Área del handle (gesture solo aquí) ─────────────────── */}
+        <GestureDetector gesture={panGesture}>
+          <Animated.View style={[styles.handle_area, handleAreaAnimatedStyle]}>
+            <View
               style={[
-                styles.dia_btn,
-                {
-                  backgroundColor: is_selected
-                    ? current_colors.brand
-                    : current_colors.iconBackground,
-                  borderColor: is_selected
-                    ? current_colors.brand
-                    : current_colors.border,
-                },
+                styles.drag_handle,
+                { backgroundColor: current_colors.border },
               ]}
-              onPress={() => toggle_dia_handler(dia)}
-              activeOpacity={0.7}
+            />
+          </Animated.View>
+        </GestureDetector>
+
+        {/* ── Header: [Cancelar] [Nueva Meta] [Guardar] ─────────────── */}
+        <View style={styles.header_container}>
+          <TouchableOpacity
+            onPress={closeSheet}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.6}
+          >
+            <Text
+              style={[
+                styles.header_side_text,
+                { color: current_colors.textSecondary },
+              ]}
             >
+              Cancelar
+            </Text>
+          </TouchableOpacity>
+
+          <Text
+            style={[styles.header_title, { color: current_colors.textPrimary }]}
+          >
+            Nueva Meta
+          </Text>
+
+          <TouchableOpacity
+            onPress={guardar_meta_handler}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            activeOpacity={0.6}
+          >
+            <Text
+              style={[
+                styles.header_side_text,
+                { color: current_colors.brand, fontWeight: "700" },
+              ]}
+            >
+              Guardar
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Formulario (ScrollView) ──────────────────────────────── */}
+        <KeyboardAvoidingView
+          style={styles.flex1}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <ScrollView
+            style={styles.flex1}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[
+              styles.scroll_content,
+              {
+                // En iOS, KeyboardAvoidingView behavior="padding" ya empuja el
+                // contenido hacia arriba. En Android usamos la altura real del
+                // teclado como padding extra para que nada quede oculto.
+                paddingBottom:
+                  Platform.OS === "android" && keyboardHeight > 0
+                    ? keyboardHeight + 16
+                    : insets.bottom + 28,
+              },
+            ]}
+          >
+            {/* 1. Foto de la meta ─────────────────────────────────── */}
+            <TouchableOpacity
+              style={[
+                styles.image_picker_btn,
+                { backgroundColor: current_colors.iconBackground },
+              ]}
+              onPress={async () => {
+                // Cerramos el teclado antes de abrir el picker para evitar conflictos de layout
+                Keyboard.dismiss();
+                await pick_image();
+                // Forzar la re-ejecución del useEffect para despertar a Reanimated
+                setRefreshTick(prev => prev + 1);
+              }}
+              activeOpacity={0.8}
+            >
+              {foto_uri ? (
+                <>
+                  <Image
+                    key={foto_uri}
+                    source={{ uri: foto_uri }}
+                    style={styles.image_preview}
+                    resizeMode="cover"
+                  />
+                  <TouchableOpacity
+                    onPress={remove_image}
+                    style={[
+                      styles.remove_btn,
+                      { backgroundColor: current_colors.danger },
+                    ]}
+                  >
+                    <Text style={styles.remove_icon}>✕</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <View style={styles.placeholder_container}>
+                  {is_image_loading ? (
+                    <ActivityIndicator color={current_colors.brand} />
+                  ) : (
+                    <Text style={styles.image_placeholder}>📷</Text>
+                  )}
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* 2. Información principal ─────────────────────────────── */}
+            <View style={styles.section}>
               <Text
                 style={[
-                  styles.dia_text,
-                  {
-                    color: is_selected ? "#FFFFFF" : current_colors.textPrimary,
-                  },
+                  styles.section_title,
+                  { color: current_colors.textSecondary },
                 ]}
               >
-                {dia}
+                INFORMACIÓN PRINCIPAL
               </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    );
-  };
-
-  // ── UI Render ──
-  return (
-    <Modal
-      visible={modal_visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={close_modal_handler}
-    >
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <View style={styles.modal_overlay}>
-          <SafeAreaView style={styles.safe_area_wrapper}>
-            <View style={styles.floating_window}>
-              <View style={styles.header_container}>
-                <Text style={styles.header_title}>Crear Nueva Meta</Text>
-                <TouchableOpacity
-                  style={styles.close_btn}
-                  onPress={close_modal_handler}
+              <View style={[styles.card, cardStyle]}>
+                <View
+                  style={[
+                    styles.input_row,
+                    {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: current_colors.border,
+                    },
+                  ]}
                 >
-                  <Text style={styles.close_icon}>✕</Text>
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                style={{ flexShrink: 1 }}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scroll_content}
-              >
-                {/* 1. Cambio de Foto/Icono */}
-                <TouchableOpacity
-                  style={styles.image_picker_btn}
-                  onPress={pick_image}
-                  activeOpacity={0.8}
+                  <TextInput
+                    style={[
+                      styles.text_input,
+                      { color: current_colors.textPrimary },
+                    ]}
+                    placeholder="Nombre de la meta"
+                    placeholderTextColor={current_colors.textSecondary}
+                    value={meta_nombre}
+                    onChangeText={set_meta_nombre}
+                    returnKeyType="next"
+                  />
+                </View>
+                <View
+                  style={[
+                    styles.input_row,
+                    {
+                      borderBottomWidth: StyleSheet.hairlineWidth,
+                      borderBottomColor: current_colors.border,
+                    },
+                  ]}
                 >
-                  {foto_uri ? (
-                    <>
-                      <Image
-                        key={foto_uri}
-                        source={{ uri: foto_uri }}
-                        style={styles.image_preview}
-                        resizeMode="cover"
-                      />
-                      <TouchableOpacity
-                        onPress={remove_image}
-                        style={styles.remove_btn}
-                      >
-                        <Text style={styles.remove_icon}>✕</Text>
-                      </TouchableOpacity>
-                    </>
-                  ) : (
-                    <View style={styles.placeholder_container}>
-                      {is_image_loading ? (
-                        <ActivityIndicator color={current_colors.brand} />
-                      ) : (
-                        <Text style={styles.image_placeholder}>📷</Text>
-                      )}
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                {/* 2. Información Principal (Card Design) */}
-                <View style={styles.section}>
-                  <Text style={styles.section_title}>
-                    INFORMACIÓN PRINCIPAL
-                  </Text>
-                  <View style={styles.card}>
-                    <View style={[styles.input_row, styles.border_bottom]}>
-                      <TextInput
-                        style={styles.text_input_plain}
-                        placeholder="Nombre de la meta"
-                        placeholderTextColor={current_colors.textSecondary}
-                        value={meta_nombre}
-                        onChangeText={set_meta_nombre}
-                      />
-                    </View>
-                    <View style={[styles.input_row, styles.border_bottom]}>
-                      <TextInput
-                        style={styles.text_input_plain}
-                        placeholder={`${currency_symbol} Objetivo financiero`}
-                        placeholderTextColor={current_colors.textSecondary}
-                        keyboardType="numeric"
-                        value={meta_ahorro}
-                        onChangeText={set_meta_ahorro}
-                      />
-                    </View>
-                    <View style={styles.input_row}>
-                      <TextInput
-                        style={styles.text_input_plain}
-                        placeholder={`${currency_symbol} Ahorro inicial (opcional)`}
-                        placeholderTextColor={current_colors.textSecondary}
-                        keyboardType="numeric"
-                        value={ahorro_inicial}
-                        onChangeText={set_ahorro_inicial}
-                      />
-                    </View>
-                  </View>
+                  <TextInput
+                    style={[
+                      styles.text_input,
+                      { color: current_colors.textPrimary },
+                    ]}
+                    placeholder={`${currency_symbol} Objetivo financiero`}
+                    placeholderTextColor={current_colors.textSecondary}
+                    keyboardType="numeric"
+                    value={meta_ahorro}
+                    onChangeText={set_meta_ahorro}
+                    returnKeyType="next"
+                  />
                 </View>
-
-                {/* 3. Planificación (Card Design) */}
-                <View style={styles.section}>
-                  <Text style={styles.section_title}>PLANIFICACIÓN</Text>
-                  <View style={styles.card}>
-                    <View style={styles.switch_row_wrapper}>
-                      <SwitchRow
-                        label="Establecer fecha de cumplimiento"
-                        value={tiene_fecha_objetivo}
-                        onValueChange={set_tiene_fecha_objetivo}
-                      />
-                    </View>
-
-                    {tiene_fecha_objetivo && (
-                      <View style={styles.date_picker_container}>
-                        <Text style={styles.reminder_info_text}>
-                          Selecciona la fecha en la que planeas cumplir esta
-                          meta:
-                        </Text>
-                        <TouchableOpacity
-                          style={styles.date_picker_btn}
-                          onPress={() => set_mostrar_calendario(true)}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={styles.date_picker_text}>
-                            📅 {fecha_objetivo.toLocaleDateString()}
-                          </Text>
-                        </TouchableOpacity>
-
-                        {mostrar_calendario && (
-                          <DateTimePicker
-                            value={fecha_objetivo}
-                            mode="date"
-                            display="default"
-                            onValueChange={fecha_objetivo_change_handler}
-                            onDismiss={dismiss_calendario_handler}
-                            minimumDate={new Date()}
-                          />
-                        )}
-                      </View>
-                    )}
-                  </View>
+                <View style={styles.input_row}>
+                  <TextInput
+                    style={[
+                      styles.text_input,
+                      { color: current_colors.textPrimary },
+                    ]}
+                    placeholder={`${currency_symbol} Ahorro inicial (opcional)`}
+                    placeholderTextColor={current_colors.textSecondary}
+                    keyboardType="numeric"
+                    value={ahorro_inicial}
+                    onChangeText={set_ahorro_inicial}
+                    returnKeyType="done"
+                  />
                 </View>
-
-                {/* 4. RECORDATORIOS Y DÍAS DE AHORRO (Card Design) */}
-                <View style={styles.section}>
-                  <Text style={styles.section_title}>RECORDATORIOS</Text>
-                  <View style={styles.card}>
-                    <View style={styles.switch_row_wrapper}>
-                      <SwitchRow
-                        label="Recuérdame ahorrar"
-                        value={recordatorio_activo}
-                        onValueChange={set_recordatorio_activo}
-                      />
-                    </View>
-
-                    {recordatorio_activo && (
-                      <View style={styles.reminder_container}>
-                        <Text style={styles.reminder_info_text}>
-                          Selecciona los días del mes para recibir tu
-                          recordatorio:
-                        </Text>
-                        {render_dias_grid()}
-                      </View>
-                    )}
-                  </View>
-                </View>
-              </ScrollView>
-
-              <View style={styles.footer_anchored}>
-                <TouchableOpacity
-                  style={styles.save_btn}
-                  onPress={guardar_meta_handler}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.save_text}>Guardar Meta</Text>
-                </TouchableOpacity>
               </View>
             </View>
-          </SafeAreaView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+
+            {/* 3. Planificación + Calendario ─────────────────────────── */}
+            <View style={styles.section}>
+              <Text
+                style={[
+                  styles.section_title,
+                  { color: current_colors.textSecondary },
+                ]}
+              >
+                PLANIFICACIÓN
+              </Text>
+              <View style={[styles.card, cardStyle]}>
+                <View style={styles.switch_row_wrapper}>
+                  <FilaInterruptor
+                    label="Establecer fecha de cumplimiento"
+                    value={tiene_fecha_objetivo}
+                    onValueChange={(val) => {
+                      set_tiene_fecha_objetivo(val);
+                      if (!val) set_fecha_objetivo(null);
+                    }}
+                  />
+                </View>
+
+                {tiene_fecha_objetivo && (
+                  <View style={styles.calendar_container}>
+                    {/* Calendario dinámico — días calculados con useMemo en useCalendar */}
+                    <CalendarioMeta calendar={calendar} />
+
+                    {fecha_objetivo ? (
+                      <Text
+                        style={[
+                          styles.selected_date_label,
+                          { color: current_colors.brand },
+                        ]}
+                      >
+                        📅{" "}
+                        {fecha_objetivo.toLocaleDateString("es-MX", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                        })}
+                      </Text>
+                    ) : (
+                      <Text
+                        style={[
+                          styles.selected_date_label,
+                          { color: current_colors.textSecondary },
+                        ]}
+                      >
+                        Toca un día para seleccionar la fecha
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* 4. Recordatorios ─────────────────────────────────────── */}
+            <View style={styles.section}>
+              <Text
+                style={[
+                  styles.section_title,
+                  { color: current_colors.textSecondary },
+                ]}
+              >
+                RECORDATORIOS
+              </Text>
+              <View style={[styles.card, cardStyle]}>
+                <View style={styles.switch_row_wrapper}>
+                  <FilaInterruptor
+                    label="Recuérdame ahorrar"
+                    value={recordatorio_activo}
+                    onValueChange={set_recordatorio_activo}
+                  />
+                </View>
+
+                {recordatorio_activo && (
+                  <View style={styles.reminder_container}>
+                    <Text
+                      style={[
+                        styles.reminder_info_text,
+                        { color: current_colors.textSecondary },
+                      ]}
+                    >
+                      Selecciona los días del mes para tu recordatorio:
+                    </Text>
+                    <View style={styles.grid_container}>
+                      {days_array.map((dia) => {
+                        const is_selected = dias_seleccionados.includes(dia);
+                        return (
+                          <TouchableOpacity
+                            key={dia}
+                            style={[
+                              styles.dia_btn,
+                              {
+                                backgroundColor: is_selected
+                                  ? current_colors.brand
+                                  : current_colors.iconBackground,
+                                borderColor: is_selected
+                                  ? current_colors.brand
+                                  : current_colors.border,
+                              },
+                            ]}
+                            onPress={() => toggle_dia_handler(dia)}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={[
+                                styles.dia_text,
+                                {
+                                  color: is_selected
+                                    ? "#FFFFFF"
+                                    : current_colors.textPrimary,
+                                },
+                              ]}
+                            >
+                              {dia}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Animated.View>
+    </View>
   );
 }
 
-// ── Styles (Rediseñados para consistencia con Settings) ──
-const get_styles = (theme_colors: any, theme: string) =>
-  StyleSheet.create({
-    modal_overlay: {
-      flex: 1,
-      justifyContent: "center",
-      alignItems: "center",
-      backgroundColor: "transparent",
-    },
-    safe_area_wrapper: {
-      flex: 1,
-      width: "100%",
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    keyboard_wrapper: {
-      width: "100%",
-      flex: 1,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    floating_window: {
-      width: "90%",
-      maxHeight: "90%",
-      flexShrink: 1,
-      borderRadius: 24,
-      backgroundColor: theme_colors.surface,
-      overflow: "hidden",
-    },
-    header_container: {
-      flexDirection: "row",
-      justifyContent: "center",
-      alignItems: "center",
-      paddingVertical: 20,
-      paddingHorizontal: 24,
-      position: "relative",
-    },
-    header_title: {
-      fontSize: 18,
-      fontWeight: "800",
-      color: theme_colors.textPrimary,
-    },
-    close_btn: {
-      position: "absolute",
-      right: 20,
-      padding: 8,
-    },
-    close_icon: {
-      fontSize: 20,
-      fontWeight: "700",
-      color: theme_colors.textSecondary,
-    },
-    scroll_content: {
-      paddingHorizontal: 20,
-      paddingBottom: 30,
-    },
-    footer_anchored: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: theme_colors.border,
-      paddingHorizontal: 20,
-      paddingVertical: 16,
-      backgroundColor: theme_colors.surface,
-    },
-    image_picker_btn: {
-      width: 90,
-      height: 90,
-      borderRadius: 45,
-      alignSelf: "center",
-      marginBottom: 24,
-      marginTop: 8,
-      justifyContent: "center",
-      alignItems: "center",
-      overflow: "hidden",
-      backgroundColor: theme_colors.iconBackground,
-    },
-    image_preview: {
-      width: "100%",
-      height: "100%",
-    },
-    placeholder_container: {
-      width: "100%",
-      height: "100%",
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    image_placeholder: {
-      fontSize: 34,
-    },
-    remove_btn: {
-      position: "absolute",
-      top: 4,
-      right: 4,
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: theme_colors.danger,
-    },
-    remove_icon: {
-      color: "#FFFFFF",
-      fontSize: 12,
-      fontWeight: "800",
-    },
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
-    // Section and Card styles (Same as Settings)
-    section: {
-      marginBottom: 24,
-    },
-    section_title: {
-      fontSize: 13,
-      fontWeight: "600",
-      color: theme_colors.textSecondary,
-      marginBottom: 8,
-      marginLeft: 12,
-      letterSpacing: 0.5,
-    },
-    card: {
-      backgroundColor: theme_colors.surface,
-      borderRadius: 16,
-      overflow: "hidden",
-      borderWidth: 1,
-      borderColor: theme_colors.border,
-      shadowColor: theme_colors.shadow_color,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.05,
-      shadowRadius: 8,
-      elevation: 2,
-    },
-    border_bottom: {
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme_colors.border,
-    },
-    input_row: {
-      paddingHorizontal: 16,
-      paddingVertical: 4,
-    },
-    text_input_plain: {
-      height: 48,
-      fontSize: 16,
-      fontWeight: "500",
-      color: theme_colors.textPrimary,
-    },
-    switch_row_wrapper: {
-      paddingHorizontal: 16,
-      paddingVertical: 8,
-    },
+const styles = StyleSheet.create({
+  flex1: { flex: 1 },
 
-    // Date Picker UI
-    date_picker_container: {
-      paddingHorizontal: 16,
-      paddingBottom: 16,
-    },
-    date_picker_btn: {
-      height: 52,
-      borderWidth: 1,
-      borderColor: theme_colors.border,
-      backgroundColor: theme_colors.background,
-      borderRadius: 14,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: 8,
-    },
-    date_picker_text: {
-      fontSize: 16,
-      fontWeight: "700",
-      color: theme_colors.brand,
-    },
+  // Pantalla completa transparente (la ruta gestiona la transparencia)
+  screen: { flex: 1 },
 
-    // Reminder days UI
-    reminder_container: {
-      paddingHorizontal: 16,
-      paddingBottom: 16,
-    },
-    reminder_info_text: {
-      fontSize: 13,
-      lineHeight: 18,
-      marginBottom: 12,
-      textAlign: "center",
-      color: theme_colors.textSecondary,
-    },
-    grid_container: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 8,
-      justifyContent: "center",
-    },
-    dia_btn: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      borderWidth: 1,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    dia_text: {
-      fontSize: 14,
-      fontWeight: "600",
-    },
+  // Fondo oscuro semitransparente — absoluteFill sobre la pantalla anterior
+  backdrop: {
+    backgroundColor: "#000000",
+  },
 
-    // Footer Button UI
-    save_btn: {
-      height: 54,
-      borderRadius: 16,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: theme_colors.brand,
-      shadowColor: theme_colors.shadow_color,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.2,
-      shadowRadius: 8,
-      elevation: 5,
-    },
-    save_text: {
-      color: "#FFFFFF",
-      fontSize: 17,
-      fontWeight: "700",
-    },
-  });
+  // Panel del bottom sheet (anclado al fondo)
+  panel: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    // Bordes redondeados SOLO en la parte superior
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: "hidden",
+    // Sombra superior
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 24,
+  },
+
+  // Área del drag handle (solo esta zona tiene el PanGestureHandler)
+  handle_area: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingBottom: 24,
+    minHeight: 48,
+  },
+  drag_handle: {
+    width: 42,
+    height: 4,
+    borderRadius: 2,
+  },
+
+  // Header: [Cancelar] [Nueva Meta] [Guardar]
+  header_container: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+  },
+  header_title: {
+    fontSize: 17,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+  },
+  header_side_text: {
+    fontSize: 15,
+    fontWeight: "500",
+  },
+
+  // Formulario
+  scroll_content: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
+  },
+  image_picker_btn: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignSelf: "center",
+    marginBottom: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  image_preview: { width: "100%", height: "100%" },
+  placeholder_container: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  image_placeholder: { fontSize: 30 },
+  remove_btn: {
+    position: "absolute",
+    top: 3,
+    right: 3,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  remove_icon: { color: "#FFF", fontSize: 11, fontWeight: "800" },
+
+  section: { marginBottom: 20 },
+  section_title: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 8,
+    marginLeft: 12,
+    letterSpacing: 0.5,
+  },
+  card: {
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+  },
+  input_row: {
+    paddingHorizontal: 16,
+    paddingVertical: 2,
+  },
+  text_input: {
+    height: 48,
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  switch_row_wrapper: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+
+  // Calendario
+  calendar_container: {
+    paddingHorizontal: 12,
+    paddingBottom: 14,
+  },
+  selected_date_label: {
+    marginTop: 12,
+    fontSize: 13,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+
+  // Recordatorios
+  reminder_container: {
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+  },
+  reminder_info_text: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  grid_container: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+    justifyContent: "center",
+  },
+  dia_btn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dia_text: { fontSize: 13, fontWeight: "600" },
+});

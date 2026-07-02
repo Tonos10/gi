@@ -22,7 +22,7 @@ import { ModalHeader } from "./modal/ModalHeader";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export interface TransactionModalProps {
+export interface ModalTransaccionProps {
   isVisible: boolean;
   onClose: () => void;
   type: "deposit" | "withdraw";
@@ -33,7 +33,7 @@ export interface TransactionModalProps {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export const TransactionModal: React.FC<TransactionModalProps> = ({
+export const ModalTransaccion: React.FC<ModalTransaccionProps> = ({
   isVisible,
   onClose,
   type,

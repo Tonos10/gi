@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+﻿import { StyleSheet, Text, View } from "react-native";
 import { useAppTheme } from "../hooks/useAppTheme";
 import { useAppStore } from "../store/useAppStore";
 import { Transaction } from "../types";
@@ -7,7 +7,8 @@ interface Props {
   transaction: Transaction;
 }
 
-export const TransactionItem = ({ transaction }: Props) => {
+// Componente: ElementoTransaccion - Elemento individual de transacciÃ³n
+export const ElementoTransaccion = ({ transaction }: Props) => {
   const { current_colors } = useAppTheme();
   const currencySymbol = useAppStore((state) => state.settings.currencySymbol);
 

@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAppStore } from '../store/useAppStore';
+import { scheduleGoalNotifications } from '../core/notifications';
 import { useAppTheme } from '../hooks/useAppTheme';
 
 export default function SettingsScreen() {
@@ -36,6 +37,12 @@ export default function SettingsScreen() {
     if (selectedDate) {
       const formatted_time = selectedDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       updateSettings({ reminderTime: formatted_time });
+      
+      // Actualizar notificaciones de las metas activas
+      const activeGoals = useAppStore.getState().goals.filter(g => g.hasReminder && g.reminderDays && g.reminderDays.length > 0);
+      activeGoals.forEach(g => {
+        scheduleGoalNotifications(g.id, g.name, g.reminderDays, formatted_time).catch(console.error);
+      });
     }
   };
 

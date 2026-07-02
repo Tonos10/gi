@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Modal, StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 
@@ -9,7 +9,8 @@ interface withdraw_modal_props {
   available_amount?: string;
 }
 
-export default function WithdrawModal({ is_visible, on_close, on_save, available_amount }: withdraw_modal_props) {
+export default // Componente: ModalRetiro - Modal para retirar dinero
+unction ModalRetiro({ is_visible, on_close, on_save, available_amount }: withdraw_modal_props) {
   const [withdraw_amount, set_withdraw_amount] = useState('');
   const [withdraw_note, set_withdraw_note] = useState('');
   

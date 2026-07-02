@@ -9,7 +9,8 @@ interface Props {
   label?: string;
 }
 
-export const CircularProgress = ({
+// Componente: ProgresoCircular - Barra de progreso circular
+export const ProgresoCircular = ({
   percentage,
   size = 200,
   strokeWidth = 20,

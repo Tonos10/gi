@@ -1,27 +1,27 @@
-// src/components/modal/CustomInput.tsx
+﻿// src/components/modal/CustomInput.tsx
 import React, { useState } from "react";
 import {
   StyleSheet,
   Text,
   TextInput,
-  TextInputProps,
+  TextEntradaProps,
   View,
   ViewStyle,
 } from "react-native";
 import { useAppTheme } from "../../hooks/useAppTheme";
 
-interface CustomInputProps extends TextInputProps {
+interface CustomEntradaProps extends TextEntradaProps {
   label?: string;
   containerStyle?: ViewStyle;
   /** Prefijo que se muestra a la izquierda del campo (ej. símbolo de moneda) */
   prefix?: string;
 }
 
-export const CustomInput: React.FC<CustomInputProps> = ({
+export const CustomInput: React.FC<CustomEntradaProps> = ({
   label,
   containerStyle,
   prefix,
-  ...textInputProps
+  ...textEntradaProps
 }) => {
   const { theme, current_colors } = useAppTheme();
   const [isFocused, setIsFocused] = useState(false);
@@ -60,20 +60,20 @@ export const CustomInput: React.FC<CustomInputProps> = ({
         ) : null}
 
         <TextInput
-          {...textInputProps}
+          {...textEntradaProps}
           style={[
             styles.input,
             { color: current_colors.textPrimary },
-            textInputProps.style,
+            textEntradaProps.style,
           ]}
           placeholderTextColor={current_colors.textSecondary}
           onFocus={(e) => {
             setIsFocused(true);
-            textInputProps.onFocus?.(e);
+            textEntradaProps.onFocus?.(e);
           }}
           onBlur={(e) => {
             setIsFocused(false);
-            textInputProps.onBlur?.(e);
+            textEntradaProps.onBlur?.(e);
           }}
         />
       </View>

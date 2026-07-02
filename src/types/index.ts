@@ -6,6 +6,7 @@ export interface Goal {
   icon?: string;
   photoUri?: string | null;
   hasTargetDate?: boolean;
+  targetDate?: string;
   hasReminder?: boolean;
   reminderDays?: number[];
   createdAt?: string;

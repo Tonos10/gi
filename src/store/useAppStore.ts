@@ -35,7 +35,8 @@ export const useAppStore = create<AppState>()(
       })),
 
       deleteGoal: (id) => set((state) => ({ 
-        goals: state.goals.filter((g) => g.id !== id) 
+        goals: state.goals.filter((g) => g.id !== id),
+        transactions: state.transactions.filter((t) => t.goalId !== id)
       })),
 
       addTransaction: (transaction) => set((state) => {

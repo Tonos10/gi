@@ -1,4 +1,4 @@
-// src/components/modal/DangerButton.tsx
+﻿// src/components/modal/DangerButton.tsx
 import React from "react";
 import {
   StyleSheet,
@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useAppTheme } from "../../hooks/useAppTheme";
 
-interface DangerButtonProps extends TouchableOpacityProps {
+interface DangerBotonProps extends TouchableOpacityProps {
   title: string;
   containerStyle?: ViewStyle;
 }
@@ -18,7 +18,7 @@ interface DangerButtonProps extends TouchableOpacityProps {
  * Botón de acción destructiva: fondo transparente con borde y texto de color
  * `danger` del tema activo. Usado para eliminar metas, cancelar, etc.
  */
-export const DangerButton: React.FC<DangerButtonProps> = ({
+export const DangerButton: React.FC<DangerBotonProps> = ({
   title,
   containerStyle,
   ...rest

@@ -1,4 +1,4 @@
-// src/components/modal/PrimaryButton.tsx
+﻿// src/components/modal/PrimaryButton.tsx
 import React from "react";
 import {
   ActivityIndicator,
@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { useAppTheme } from "../../hooks/useAppTheme";
 
-interface PrimaryButtonProps extends TouchableOpacityProps {
+interface PrimaryBotonProps extends TouchableOpacityProps {
   title: string;
   /** Muestra un spinner en lugar del texto cuando es true */
   loading?: boolean;
@@ -19,7 +19,7 @@ interface PrimaryButtonProps extends TouchableOpacityProps {
   containerStyle?: ViewStyle;
 }
 
-export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
+export const PrimaryButton: React.FC<PrimaryBotonProps> = ({
   title,
   loading = false,
   color,

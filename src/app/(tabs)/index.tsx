@@ -1,12 +1,12 @@
-// app/(tabs)/index.tsx
+﻿// app/(tabs)/index.tsx
 //
 // Pantalla principal de metas (home screen).
 // PUNTO 1 — Sin barra inferior. Botón de Configuración en esquina superior derecha.
 // PUNTO 3 — Tema dinámico: sin colores hardcodeados, responde a useColorScheme.
 // PUNTO 5 — GoalCard muestra photoUri guardada; fallback al ícono 🐷 predefinido.
 
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useRouter } from "expo-router";
+import { useMemo, useState } from "react";
 import {
   FlatList,
   StyleSheet,
@@ -14,12 +14,12 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import GoalCard from '../../components/GoalCard';
-import { useAppTheme } from '../../hooks/useAppTheme';
-import { useAppStore } from '../../store/useAppStore';
+import TarjetaMeta from "../../components/TarjetaMeta";
+import { useAppTheme } from "../../hooks/useAppTheme";
+import { useAppStore } from "../../store/useAppStore";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -31,7 +31,7 @@ export default function HomeScreen() {
   const goals = useAppStore((state) => state.goals);
 
   // Estado del buscador / Search query local state
-  const [search_query, setSearchQuery] = useState('');
+  const [search_query, setSearchQuery] = useState("");
 
   // Filtrado optimizado con useMemo / Memoized filter to avoid re-renders
   const filtered_goals = useMemo(
@@ -62,9 +62,12 @@ export default function HomeScreen() {
           id="btn-open-settings"
           style={[
             styles.settings_btn,
-            { backgroundColor: current_colors.surface, borderColor: current_colors.border },
+            {
+              backgroundColor: current_colors.surface,
+              borderColor: current_colors.border,
+            },
           ]}
-          onPress={() => router.push('/settings')}
+          onPress={() => router.push("/settings")}
           activeOpacity={0.7}
         >
           <Text style={styles.settings_icon}>⚙️</Text>
@@ -115,7 +118,7 @@ export default function HomeScreen() {
               : 0;
 
           return (
-            <GoalCard
+            <TarjetaMeta
               name={item.name}
               targetAmount={item.targetAmount}
               percentage={pct}
@@ -131,11 +134,14 @@ export default function HomeScreen() {
           <View style={styles.empty_container}>
             <Text style={styles.empty_emoji}>🎯</Text>
             <Text
-              style={[styles.empty_text, { color: current_colors.textSecondary }]}
+              style={[
+                styles.empty_text,
+                { color: current_colors.textSecondary },
+              ]}
             >
               {search_query
-                ? 'No se encontraron metas.'
-                : 'No tienes metas aún.\n¡Empieza ahorrando!'}
+                ? "No se encontraron metas."
+                : "No tienes metas aún.\n¡Empieza ahorrando!"}
             </Text>
           </View>
         )}
@@ -147,7 +153,7 @@ export default function HomeScreen() {
       <TouchableOpacity
         id="btn-create-goal-fab"
         style={[styles.fab, { backgroundColor: current_colors.primary }]}
-        onPress={() => router.push('/goal/new-goal')}
+        onPress={() => router.push("/goal/new-goal")}
         activeOpacity={0.85}
       >
         <Text style={styles.fab_text}>+</Text>
@@ -164,16 +170,16 @@ const styles = StyleSheet.create({
 
   // Encabezado superior / Top header
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 8,
   },
   header_title: {
     fontSize: 28,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: -0.5,
   },
 
@@ -182,8 +188,8 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
   },
   settings_icon: {
@@ -196,8 +202,8 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   search_container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1,
@@ -210,7 +216,7 @@ const styles = StyleSheet.create({
   search_input: {
     flex: 1,
     fontSize: 16,
-    height: '100%',
+    height: "100%",
   },
 
   // Lista / FlatList content
@@ -222,7 +228,7 @@ const styles = StyleSheet.create({
   // Estado vacío / Empty state
   empty_container: {
     padding: 48,
-    alignItems: 'center',
+    alignItems: "center",
   },
   empty_emoji: {
     fontSize: 48,
@@ -230,21 +236,21 @@ const styles = StyleSheet.create({
   },
   empty_text: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 24,
   },
 
   // FAB — Botón flotante
   fab: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 28,
     right: 24,
     width: 60,
     height: 60,
     borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 6,
@@ -252,8 +258,8 @@ const styles = StyleSheet.create({
   },
   fab_text: {
     fontSize: 32,
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     lineHeight: 36,
-    fontWeight: '300',
+    fontWeight: "300",
   },
 });
