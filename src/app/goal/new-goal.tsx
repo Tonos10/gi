@@ -52,13 +52,14 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 
 import { CalendarioMeta } from "../../components/CalendarioMeta";
 import { FilaInterruptor } from "../../components/FilaInterruptor";
 import { useAppTheme } from "../../hooks/useAppTheme";
 import { useCalendar } from "../../hooks/useCalendar";
 import { useGoalImagePicker } from "../../hooks/useGoalImagePicker";
-import { scheduleGoalNotifications } from "../../core/notifications";
+import { scheduleMonthlyReminders } from "../../core/notifications";
 import { useAppStore } from "../../store/useAppStore";
 
 // ─── Constantes de animación ──────────────────────────────────────────────────
@@ -79,6 +80,7 @@ export default function NewGoalScreen() {
   const { height: SCREEN_H } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { current_colors } = useAppTheme();
+  const { t } = useTranslation();
 
   // ── Snap points (calculados una vez por render de raíz) ────────────────────
   const SNAP_HALF = SCREEN_H * 0.52; // Panel inicial al ~48% de la pantalla
@@ -145,8 +147,8 @@ export default function NewGoalScreen() {
   const guardar_meta_handler = async () => {
     if (!meta_nombre.trim() || !meta_ahorro.trim()) {
       Alert.alert(
-        "Error",
-        "Por favor, ingresa el nombre y el objetivo financiero.",
+        t('common.error'),
+        t('goals.error_required_fields'),
       );
       return;
     }
@@ -169,7 +171,7 @@ export default function NewGoalScreen() {
     // Programar notificaciones si están activas
     if (recordatorio_activo && dias_seleccionados.length > 0) {
       const reminderTime = useAppStore.getState().settings.reminderTime;
-      await scheduleGoalNotifications(
+      await scheduleMonthlyReminders(
         id, 
         meta_nombre.trim(), 
         dias_seleccionados, 
@@ -373,14 +375,14 @@ export default function NewGoalScreen() {
                 { color: current_colors.textSecondary },
               ]}
             >
-              Cancelar
+              {t('common.cancel')}
             </Text>
           </TouchableOpacity>
 
           <Text
             style={[styles.header_title, { color: current_colors.textPrimary }]}
           >
-            Nueva Meta
+            {t('goals.new_goal')}
           </Text>
 
           <TouchableOpacity
@@ -394,7 +396,7 @@ export default function NewGoalScreen() {
                 { color: current_colors.brand, fontWeight: "700" },
               ]}
             >
-              Guardar
+              {t('common.save')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -473,7 +475,7 @@ export default function NewGoalScreen() {
                   { color: current_colors.textSecondary },
                 ]}
               >
-                INFORMACIÓN PRINCIPAL
+                {t('goals.main_info')}
               </Text>
               <View style={[styles.card, cardStyle]}>
                 <View
@@ -490,7 +492,7 @@ export default function NewGoalScreen() {
                       styles.text_input,
                       { color: current_colors.textPrimary },
                     ]}
-                    placeholder="Nombre de la meta"
+                    placeholder={t('goals.goal_name')}
                     placeholderTextColor={current_colors.textSecondary}
                     value={meta_nombre}
                     onChangeText={set_meta_nombre}
@@ -511,7 +513,7 @@ export default function NewGoalScreen() {
                       styles.text_input,
                       { color: current_colors.textPrimary },
                     ]}
-                    placeholder={`${currency_symbol} Objetivo financiero`}
+                    placeholder={`${currency_symbol} ${t('goals.financial_target')}`}
                     placeholderTextColor={current_colors.textSecondary}
                     keyboardType="numeric"
                     value={meta_ahorro}
@@ -525,7 +527,7 @@ export default function NewGoalScreen() {
                       styles.text_input,
                       { color: current_colors.textPrimary },
                     ]}
-                    placeholder={`${currency_symbol} Ahorro inicial (opcional)`}
+                    placeholder={`${currency_symbol} ${t('goals.initial_savings')}`}
                     placeholderTextColor={current_colors.textSecondary}
                     keyboardType="numeric"
                     value={ahorro_inicial}
@@ -544,12 +546,12 @@ export default function NewGoalScreen() {
                   { color: current_colors.textSecondary },
                 ]}
               >
-                PLANIFICACIÓN
+                {t('goals.planning')}
               </Text>
               <View style={[styles.card, cardStyle]}>
                 <View style={styles.switch_row_wrapper}>
                   <FilaInterruptor
-                    label="Establecer fecha de cumplimiento"
+                    label={t('goals.set_target_date')}
                     value={tiene_fecha_objetivo}
                     onValueChange={(val) => {
                       set_tiene_fecha_objetivo(val);
@@ -584,7 +586,7 @@ export default function NewGoalScreen() {
                           { color: current_colors.textSecondary },
                         ]}
                       >
-                        Toca un día para seleccionar la fecha
+                        {t('goals.tap_to_select_date')}
                       </Text>
                     )}
                   </View>
@@ -600,12 +602,12 @@ export default function NewGoalScreen() {
                   { color: current_colors.textSecondary },
                 ]}
               >
-                RECORDATORIOS
+                {t('settings.reminders')}
               </Text>
               <View style={[styles.card, cardStyle]}>
                 <View style={styles.switch_row_wrapper}>
                   <FilaInterruptor
-                    label="Recuérdame ahorrar"
+                    label={t('goals.remind_me')}
                     value={recordatorio_activo}
                     onValueChange={set_recordatorio_activo}
                   />
@@ -619,7 +621,7 @@ export default function NewGoalScreen() {
                         { color: current_colors.textSecondary },
                       ]}
                     >
-                      Selecciona los días del mes para tu recordatorio:
+                      {t('goals.select_reminder_days')}
                     </Text>
                     <View style={styles.grid_container}>
                       {days_array.map((dia) => {

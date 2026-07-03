@@ -17,7 +17,7 @@ import { DangerButton } from "../../components/modal/DangerButton";
 import { ModalCard } from "../../components/modal/ModalCard";
 import { ModalHeader } from "../../components/modal/ModalHeader";
 import { FilaInterruptor } from '../../components/FilaInterruptor';
-import { scheduleGoalNotifications, cancelGoalNotifications } from "../../core/notifications";
+import { scheduleMonthlyReminders, cancelGoalNotifications } from "../../core/notifications";
 import { useAppTheme } from "../../hooks/useAppTheme";
 import { useAppStore } from "../../store/useAppStore";
 
@@ -111,7 +111,7 @@ export default function EditGoalModal() {
     // Configurar notificaciones actualizadas
     if (recordatorio_activo && dias_seleccionados.length > 0) {
       const reminderTime = useAppStore.getState().settings.reminderTime;
-      scheduleGoalNotifications(
+      scheduleMonthlyReminders(
         current_goal.id,
         meta_nombre.trim(),
         dias_seleccionados,

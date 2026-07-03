@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 
 import { ProgresoCircular } from '../../components/ProgresoCircular';
 import { ElementoTransaccion } from '../../components/ElementoTransaccion';
@@ -91,6 +92,7 @@ const action_styles = StyleSheet.create({
 
 export default function GoalDetailScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { theme, current_colors } = useAppTheme();
 
   // Estado para expandir las transacciones
@@ -137,13 +139,13 @@ export default function GoalDetailScreen() {
       >
         <View style={styles.error_container}>
           <Text style={styles.error_emoji}>🔍</Text>
-          <Text style={styles.error_text}>Meta no encontrada.</Text>
+          <Text style={styles.error_text}>{t('goals.not_found')}</Text>
           <TouchableOpacity
             id="btn-back-error"
             onPress={() => router.back()}
             style={styles.error_back_btn}
           >
-            <Text style={styles.error_back_text}>← Volver</Text>
+            <Text style={styles.error_back_text}>← {t('common.back')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -220,7 +222,7 @@ export default function GoalDetailScreen() {
                     { color: "rgba(255,255,255,0.84)" },
                   ]}
                 >
-                  Meta de ahorro
+                  {t('goals.savings_goal')}
                 </Text>
               </View>
             </View>
@@ -268,7 +270,7 @@ export default function GoalDetailScreen() {
                     { color: current_colors.textSecondary },
                   ]}
                 >
-                  Meta de ahorro
+                  {t('goals.savings_goal')}
                 </Text>
               </View>
             </View>
@@ -279,13 +281,13 @@ export default function GoalDetailScreen() {
         <View style={styles.details_card}>
           <Text style={styles.card_amount_main}>{saved_formatted}</Text>
           <Text style={styles.card_amount_sub}>
-            meta de{" "}
+            {t('goals.goal_of')}
             <Text style={styles.card_amount_sub_bold}>{target_formatted}</Text>
           </Text>
 
           {goal.hasTargetDate && goal.targetDate && (
             <Text style={styles.target_date_text}>
-              📅 Para el {new Date(goal.targetDate).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}
+              {t('goals.for_date')}{new Date(goal.targetDate).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}
             </Text>
           )}
 
@@ -301,7 +303,7 @@ export default function GoalDetailScreen() {
           </View>
 
           <View style={styles.remaining_chip}>
-            <Text style={styles.remaining_label}>Restante</Text>
+            <Text style={styles.remaining_label}>{t('goals.remaining')}</Text>
             <Text style={styles.remaining_value}>{remaining_formatted}</Text>
           </View>
         </View>
@@ -310,7 +312,7 @@ export default function GoalDetailScreen() {
         <View style={styles.action_row}>
           <ActionCircleButton
             btn_id="btn-add-money"
-            label="Agregar"
+            label={t('goals.add')}
             icon="+"
             bg_color={current_colors.primary}
             text_color={current_colors.textPrimary}
@@ -321,7 +323,7 @@ export default function GoalDetailScreen() {
           />
           <ActionCircleButton
             btn_id="btn-withdraw-money"
-            label="Retirar"
+            label={t('goals.withdraw')}
             icon="↓"
             bg_color={current_colors.danger}
             text_color={current_colors.textPrimary}
@@ -332,7 +334,7 @@ export default function GoalDetailScreen() {
           />
           <ActionCircleButton
             btn_id="btn-edit-goal"
-            label="Editar"
+            label={t('common.edit')}
             icon="✎"
             bg_color={current_colors.brand}
             text_color={current_colors.textPrimary}
@@ -346,7 +348,7 @@ export default function GoalDetailScreen() {
         {/* SECCIÓN 4: Tarjeta de transacciones recientes */}
         <View style={styles.transactions_card}>
           <View style={styles.tx_header_row}>
-            <Text style={styles.tx_section_title}>Transacciones recientes</Text>
+            <Text style={styles.tx_section_title}>{t('goals.recent_transactions')}</Text>
             {goal_transactions.length > 5 && (
               <TouchableOpacity
                 id="btn-see-all-transactions"
@@ -356,7 +358,7 @@ export default function GoalDetailScreen() {
                 }
               >
                 <Text style={styles.tx_see_all}>
-                  {show_all_transactions ? "Ocultar ‹" : "Ver todo ›"}
+                  {show_all_transactions ? t('goals.hide') : t('goals.see_all')}
                 </Text>
               </TouchableOpacity>
             )}
@@ -366,10 +368,10 @@ export default function GoalDetailScreen() {
             <View style={styles.tx_empty_box}>
               <Text style={styles.tx_empty_icon}>💳</Text>
               <Text style={styles.tx_empty_text}>
-                No hay transacciones aún.
+                {t('goals.no_transactions')}
               </Text>
               <Text style={styles.tx_empty_hint}>
-                Agrega dinero para comenzar tu meta
+                {t('goals.add_money_hint')}
               </Text>
             </View>
           ) : (

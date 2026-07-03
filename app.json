@@ -7,17 +7,21 @@
     "icon": "./assets/icono.png",
     "scheme": "coinly",
     "userInterfaceStyle": "automatic",
+    "owner": "anthony117",
     "ios": {
       "icon": "./assets/icono.png"
     },
     "android": {
+      "package": "com.anthony117.coinly",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/icono.png",
-        "backgroundImage": "./assets/icono.png",
-        "monochromeImage": "./assets/icono.png"
+        "foregroundImage": "./assets/icono.png"
       },
       "predictiveBackGestureEnabled": false
+    },
+    "notification": {
+      "icon": "./assets/icono-notificacion.png",
+      "color": "#208AEF"
     },
     "web": {
       "output": "static",
@@ -29,13 +33,19 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",
-          "android": {
-            "image": "./assets/icono.png",
-            "imageWidth": 76
-          }
+          "image": "./assets/icono.png",
+          "imageWidth": 200
         }
       ],
-      "@react-native-community/datetimepicker"
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icono-notificacion.png",
+          "color": "#208AEF"
+        }
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true,

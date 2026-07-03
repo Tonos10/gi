@@ -1,14 +1,36 @@
 import { Stack } from "expo-router";
-import { LogBox } from "react-native";
+import { useEffect, useState } from "react";
+import { LogBox, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+import { initI18n } from "../core/i18n";
 import { useAppTheme } from "../hooks/useAppTheme";
+import { useLanguageStore } from "../store/useLanguageStore";
 
 // Esto ignorará específicamente ese aviso de deprecación
 LogBox.ignoreLogs(["ImagePicker.MediaTypeOptions"]);
 export default function RootLayout() {
   const { current_colors } = useAppTheme();
+  const hydrate = useLanguageStore((s) => s.hydrate);
+  const [isI18nInitialized, setIsI18nInitialized] = useState(false);
+
+  useEffect(() => {
+    // Inicializa i18next y aplica la preferencia guardada (o el locale del sistema).
+    initI18n()
+      .then(() => {
+        hydrate();
+        setIsI18nInitialized(true);
+      })
+      .catch((err) => {
+        console.error(err);
+        setIsI18nInitialized(true);
+      });
+  }, [hydrate]);
+
+  if (!isI18nInitialized) {
+    return <View style={{ flex: 1, backgroundColor: current_colors.background }} />;
+  }
 
   return (
     <GestureHandlerRootView

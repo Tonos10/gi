@@ -1,4 +1,4 @@
-﻿// app/(tabs)/index.tsx
+// app/(tabs)/index.tsx
 //
 // Pantalla principal de metas (home screen).
 // PUNTO 1 — Sin barra inferior. Botón de Configuración en esquina superior derecha.
@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
 
 import TarjetaMeta from "../../components/TarjetaMeta";
 import { useAppTheme } from "../../hooks/useAppTheme";
@@ -23,6 +24,7 @@ import { useAppStore } from "../../store/useAppStore";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
 
   // PUNTO 3 — Lectura dinámica del esquema de color del sistema / Dynamic color scheme
   const { current_colors } = useAppTheme();
@@ -54,7 +56,7 @@ export default function HomeScreen() {
         <Text
           style={[styles.header_title, { color: current_colors.textPrimary }]}
         >
-          Mis metas
+          {t("goals.title")}
         </Text>
 
         {/* PUNTO 1 — Botón Configuraciones movido al header superior derecho */}
@@ -91,7 +93,7 @@ export default function HomeScreen() {
           <TextInput
             id="input-search-goals"
             style={[styles.search_input, { color: current_colors.textPrimary }]}
-            placeholder="Buscar metas"
+            placeholder={t("goals.search_placeholder")}
             placeholderTextColor={current_colors.textSecondary}
             value={search_query}
             onChangeText={setSearchQuery}
@@ -140,8 +142,8 @@ export default function HomeScreen() {
               ]}
             >
               {search_query
-                ? "No se encontraron metas."
-                : "No tienes metas aún.\n¡Empieza ahorrando!"}
+                ? t("goals.search_empty")
+                : t("goals.empty_message")}
             </Text>
           </View>
         )}
