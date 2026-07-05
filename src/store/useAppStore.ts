@@ -24,6 +24,7 @@ export const useAppStore = create<AppState>()(
         theme: 'system',
         currencySymbol: '$',
         reminderTime: '9:00 a.m.',
+        isPremium: false,
       },
 
       addGoal: (goal) => set((state) => ({ 

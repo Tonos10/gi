@@ -5,9 +5,9 @@
 // Punto 2 → Rediseño completo con tema claro y oscuro dinámico usando current_colors
 // Punto 4 → Variables en snake_case, comentarios bilingüe inglés/español
 
-
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ImageBackground,
   ScrollView,
@@ -17,10 +17,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useTranslation } from "react-i18next";
 
-import { ProgresoCircular } from '../../components/ProgresoCircular';
-import { ElementoTransaccion } from '../../components/ElementoTransaccion';
+import { CoinlyBanner } from "@/services/ads/Banner";
+import { AdManager } from "@/services/ads/AdManager";
+import { ElementoTransaccion } from "../../components/ElementoTransaccion";
+import { ProgresoCircular } from "../../components/ProgresoCircular";
 import { useAppTheme } from "../../hooks/useAppTheme";
 import { useAppStore } from "../../store/useAppStore";
 
@@ -87,13 +88,12 @@ const action_styles = StyleSheet.create({
   label_text: { fontSize: 13, fontWeight: "600" },
 });
 
-
 // ─── Componente principal ──────────────────────────────────────────────────────
 
 export default function GoalDetailScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const { theme, current_colors } = useAppTheme();
+  const { current_colors } = useAppTheme();
 
   // Estado para expandir las transacciones
   const [show_all_transactions, set_show_all_transactions] = useState(false);
@@ -128,6 +128,50 @@ export default function GoalDetailScreen() {
   // Generamos los estilos inyectando el tema actual
   const styles = useMemo(() => get_styles(current_colors), [current_colors]);
 
+  // ── Interstitial Ad — acción pendiente guardada en ref ─────────────────────
+  // pending_action guarda la función de navegación que se ejecutará al cerrar el anuncio
+  const pending_action = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    // Precargar el anuncio al montar la pantalla
+    AdManager.preload();
+
+    // Suscribirse al evento CLOSED para ejecutar la acción pendiente
+    const unsubscribe = AdManager.onAdClosed(() => {
+      if (pending_action.current) {
+        const action = pending_action.current;
+        pending_action.current = null;
+        action();
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  /**
+   * Muestra el interstitial y ejecuta `action` al cerrarse.
+   * Si el anuncio no está listo, ejecuta la acción de inmediato
+   * para no bloquear al usuario.
+   */
+  const navigate_with_ad = async (action: () => void) => {
+    pending_action.current = action;
+    const shown = await AdManager.showInterstitial();
+    if (!shown) {
+      // El anuncio no estaba listo: ejecutar de inmediato
+      pending_action.current = null;
+      action();
+    }
+  };
+
+  // Botón de Regresar — ejecuta router.dismissAll() tras cerrar el anuncio
+  const handle_back = () => navigate_with_ad(() => router.dismissAll());
+
+  // Botón de Editar — navega al modal de edición tras cerrar el anuncio
+  const handle_edit = () =>
+    navigate_with_ad(() => router.push(`/(modals)/edit-goal?goalId=${goal?.id}`));
+
   // ── Pantalla de error si la meta no existe ──────────────────────────────────
   if (!goal) {
     return (
@@ -139,13 +183,13 @@ export default function GoalDetailScreen() {
       >
         <View style={styles.error_container}>
           <Text style={styles.error_emoji}>🔍</Text>
-          <Text style={styles.error_text}>{t('goals.not_found')}</Text>
+          <Text style={styles.error_text}>{t("goals.not_found")}</Text>
           <TouchableOpacity
             id="btn-back-error"
             onPress={() => router.back()}
             style={styles.error_back_btn}
           >
-            <Text style={styles.error_back_text}>← {t('common.back')}</Text>
+            <Text style={styles.error_back_text}>← {t("common.back")}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -198,7 +242,7 @@ export default function GoalDetailScreen() {
             <TouchableOpacity
               id="btn-back-goal-detail"
               style={styles.back_btn}
-              onPress={() => router.back()}
+              onPress={handle_back}
               activeOpacity={0.7}
             >
               <Text style={[styles.back_btn_text, { color: "#FFFFFF" }]}>
@@ -210,7 +254,7 @@ export default function GoalDetailScreen() {
               <View
                 style={[
                   styles.hero_title_backdrop,
-                  { backgroundColor: "rgba(0,0,0,0.34)" }
+                  { backgroundColor: "rgba(0,0,0,0.34)" },
                 ]}
               >
                 <Text style={[styles.hero_title, { color: "#FFFFFF" }]}>
@@ -222,7 +266,7 @@ export default function GoalDetailScreen() {
                     { color: "rgba(255,255,255,0.84)" },
                   ]}
                 >
-                  {t('goals.savings_goal')}
+                  {t("goals.savings_goal")}
                 </Text>
               </View>
             </View>
@@ -237,7 +281,7 @@ export default function GoalDetailScreen() {
             <TouchableOpacity
               id="btn-back-goal-detail"
               style={styles.back_btn}
-              onPress={() => router.back()}
+              onPress={handle_back}
               activeOpacity={0.7}
             >
               <Text style={styles.back_btn_text}>‹</Text>
@@ -270,7 +314,7 @@ export default function GoalDetailScreen() {
                     { color: current_colors.textSecondary },
                   ]}
                 >
-                  {t('goals.savings_goal')}
+                  {t("goals.savings_goal")}
                 </Text>
               </View>
             </View>
@@ -281,13 +325,18 @@ export default function GoalDetailScreen() {
         <View style={styles.details_card}>
           <Text style={styles.card_amount_main}>{saved_formatted}</Text>
           <Text style={styles.card_amount_sub}>
-            {t('goals.goal_of')}
+            {t("goals.goal_of")}
             <Text style={styles.card_amount_sub_bold}>{target_formatted}</Text>
           </Text>
 
           {goal.hasTargetDate && goal.targetDate && (
             <Text style={styles.target_date_text}>
-              {t('goals.for_date')}{new Date(goal.targetDate).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" })}
+              {t("goals.for_date")}
+              {new Date(goal.targetDate).toLocaleDateString("es-MX", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
             </Text>
           )}
 
@@ -303,7 +352,7 @@ export default function GoalDetailScreen() {
           </View>
 
           <View style={styles.remaining_chip}>
-            <Text style={styles.remaining_label}>{t('goals.remaining')}</Text>
+            <Text style={styles.remaining_label}>{t("goals.remaining")}</Text>
             <Text style={styles.remaining_value}>{remaining_formatted}</Text>
           </View>
         </View>
@@ -312,7 +361,7 @@ export default function GoalDetailScreen() {
         <View style={styles.action_row}>
           <ActionCircleButton
             btn_id="btn-add-money"
-            label={t('goals.add')}
+            label={t("goals.add")}
             icon="+"
             bg_color={current_colors.primary}
             text_color={current_colors.textPrimary}
@@ -323,7 +372,7 @@ export default function GoalDetailScreen() {
           />
           <ActionCircleButton
             btn_id="btn-withdraw-money"
-            label={t('goals.withdraw')}
+            label={t("goals.withdraw")}
             icon="↓"
             bg_color={current_colors.danger}
             text_color={current_colors.textPrimary}
@@ -334,21 +383,21 @@ export default function GoalDetailScreen() {
           />
           <ActionCircleButton
             btn_id="btn-edit-goal"
-            label={t('common.edit')}
+            label={t("common.edit")}
             icon="✎"
             bg_color={current_colors.brand}
             text_color={current_colors.textPrimary}
             shadow_color={current_colors.shadow_color}
-            on_press={() =>
-              router.push(`/(modals)/edit-goal?goalId=${goal.id}`)
-            }
+            on_press={handle_edit}
           />
         </View>
 
         {/* SECCIÓN 4: Tarjeta de transacciones recientes */}
         <View style={styles.transactions_card}>
           <View style={styles.tx_header_row}>
-            <Text style={styles.tx_section_title}>{t('goals.recent_transactions')}</Text>
+            <Text style={styles.tx_section_title}>
+              {t("goals.recent_transactions")}
+            </Text>
             {goal_transactions.length > 5 && (
               <TouchableOpacity
                 id="btn-see-all-transactions"
@@ -358,7 +407,7 @@ export default function GoalDetailScreen() {
                 }
               >
                 <Text style={styles.tx_see_all}>
-                  {show_all_transactions ? t('goals.hide') : t('goals.see_all')}
+                  {show_all_transactions ? t("goals.hide") : t("goals.see_all")}
                 </Text>
               </TouchableOpacity>
             )}
@@ -368,10 +417,10 @@ export default function GoalDetailScreen() {
             <View style={styles.tx_empty_box}>
               <Text style={styles.tx_empty_icon}>💳</Text>
               <Text style={styles.tx_empty_text}>
-                {t('goals.no_transactions')}
+                {t("goals.no_transactions")}
               </Text>
               <Text style={styles.tx_empty_hint}>
-                {t('goals.add_money_hint')}
+                {t("goals.add_money_hint")}
               </Text>
             </View>
           ) : (
@@ -382,7 +431,7 @@ export default function GoalDetailScreen() {
             </View>
           )}
         </View>
-
+        <CoinlyBanner />
         <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>

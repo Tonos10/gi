@@ -1,7 +1,7 @@
 // src/app/(tabs)/settings.tsx
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Linking,
   Platform,
@@ -17,6 +17,7 @@ import { LanguageSection } from "../components/LanguageSection";
 import { scheduleMonthlyReminders } from "../core/notifications";
 import { useAppTheme } from "../hooks/useAppTheme";
 import { useAppStore } from "../store/useAppStore";
+import { AdManager } from "../services/ads/AdManager";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -28,6 +29,39 @@ export default function SettingsScreen() {
 
   const [show_time_picker, set_show_time_picker] = useState(false);
   const [show_currency_list, set_show_currency_list] = useState(false);
+
+  // ── Interstitial Ad — interceptar el botón de salida ─────────────────────
+  const pending_back = useRef(false);
+
+  useEffect(() => {
+    // Precargar el anuncio al montar la pantalla de configuración
+    AdManager.preload();
+
+    // Suscribirse al evento CLOSED para ejecutar el regreso
+    const unsubscribe = AdManager.onAdClosed(() => {
+      if (pending_back.current) {
+        pending_back.current = false;
+        router.back();
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [router]);
+
+  /**
+   * Muestra el interstitial y regresa al cerrarse.
+   * Si el anuncio no está listo, regresa de inmediato.
+   */
+  const handle_back_with_ad = async () => {
+    pending_back.current = true;
+    const shown = await AdManager.showInterstitial();
+    if (!shown) {
+      pending_back.current = false;
+      router.back();
+    }
+  };
 
   const handle_theme_change = (theme: "system" | "light" | "dark") => {
     updateSettings({ theme });
@@ -69,7 +103,9 @@ export default function SettingsScreen() {
   };
 
   const handle_premium = () => {
-    alert("¡Gracias por tu interés! Próximamente versión sin anuncios.");
+    const isPremium = settings.isPremium;
+    updateSettings({ isPremium: !isPremium });
+    alert(!isPremium ? "¡Versión Premium Activada! Se han deshabilitado los anuncios." : "Versión Estándar Activada. Se muestran los anuncios.");
   };
 
   return (
@@ -80,7 +116,7 @@ export default function SettingsScreen() {
         contentContainerStyle={styles.scroll_content}
         showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity onPress={() => router.back()} style={styles.back_btn}>
+        <TouchableOpacity onPress={handle_back_with_ad} style={styles.back_btn}>
           <Text style={[styles.back_text, { color: current_colors.brand }]}>
             ‹ {t("common.back")}
           </Text>
@@ -211,9 +247,11 @@ export default function SettingsScreen() {
             style={[styles.card, styles.premium_card]}
             onPress={handle_premium}
           >
-            <Text style={styles.premium_title}>{t("settings.premium_title")}</Text>
+            <Text style={styles.premium_title}>
+              {settings.isPremium ? "🌟 Versión Premium Activa" : t("settings.premium_title")}
+            </Text>
             <Text style={styles.premium_desc}>
-              {t("settings.premium_desc")}
+              {settings.isPremium ? "Disfruta de la app sin anuncios." : t("settings.premium_desc")}
             </Text>
           </TouchableOpacity>
         </View>

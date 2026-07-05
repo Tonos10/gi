@@ -27,4 +27,5 @@ export interface UserSettings {
   theme: 'light' | 'dark' | 'system';
   currencySymbol: string;
   reminderTime: string;
+  isPremium?: boolean;
 }

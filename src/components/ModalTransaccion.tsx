@@ -7,15 +7,10 @@
  * Todo el contenido entra sin necesidad de hacer scroll en pantallas normales.
  */
 import React, { useEffect, useState } from "react";
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { useAppStore } from "../store/useAppStore";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useAppTheme } from "../hooks/useAppTheme";
+import { useInterstitial } from "../services/ads/hooks/useInterstitial";
+import { useAppStore } from "../store/useAppStore";
 import { CustomInput } from "./modal/CustomInput";
 import { ModalCard } from "./modal/ModalCard";
 import { ModalHeader } from "./modal/ModalHeader";
@@ -44,20 +39,25 @@ export const ModalTransaccion: React.FC<ModalTransaccionProps> = ({
   const { current_colors } = useAppTheme();
 
   const addTransaction = useAppStore((state) => state.addTransaction);
-  const goal = useAppStore((state) =>
-    state.goals.find((g) => g.id === goalId),
-  );
+  const goal = useAppStore((state) => state.goals.find((g) => g.id === goalId));
   const currencySymbol = useAppStore((state) => state.settings.currencySymbol);
 
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
 
+  const { registerAction, showNow } = useInterstitial();
+
   useEffect(() => {
-    if (isVisible) {
+    if (!isVisible) return;
+
+    const id = setTimeout(() => {
       setAmount("");
       setNote("");
-    }
-  }, [isVisible]);
+      registerAction();
+    }, 0);
+
+    return () => clearTimeout(id);
+  }, [isVisible, registerAction]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -94,13 +94,17 @@ export const ModalTransaccion: React.FC<ModalTransaccionProps> = ({
       date: new Date().toISOString(),
     });
 
-    handleClose();
+    showNow().finally(() => {
+      handleClose();
+    });
   };
 
   // ── Derived values ───────────────────────────────────────────────────────────
 
   const isDeposit = type === "deposit";
-  const actionColor = isDeposit ? current_colors.primary : current_colors.danger;
+  const actionColor = isDeposit
+    ? current_colors.primary
+    : current_colors.danger;
 
   const savedFormatted = goal
     ? `${currencySymbol}${goal.savedAmount.toLocaleString("es-MX", {
@@ -149,10 +153,20 @@ export const ModalTransaccion: React.FC<ModalTransaccionProps> = ({
             },
           ]}
         >
-          <Text style={[styles.balanceLabel, { color: current_colors.textSecondary }]}>
+          <Text
+            style={[
+              styles.balanceLabel,
+              { color: current_colors.textSecondary },
+            ]}
+          >
             {balanceLabel}
           </Text>
-          <Text style={[styles.balanceAmount, { color: current_colors.textPrimary }]}>
+          <Text
+            style={[
+              styles.balanceAmount,
+              { color: current_colors.textPrimary },
+            ]}
+          >
             {savedFormatted}
           </Text>
         </View>

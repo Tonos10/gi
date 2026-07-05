@@ -21,6 +21,7 @@ import { useTranslation } from "react-i18next";
 import TarjetaMeta from "../../components/TarjetaMeta";
 import { useAppTheme } from "../../hooks/useAppTheme";
 import { useAppStore } from "../../store/useAppStore";
+import { CoinlyBanner } from "../../services/ads/Banner";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -160,6 +161,13 @@ export default function HomeScreen() {
       >
         <Text style={styles.fab_text}>+</Text>
       </TouchableOpacity>
+
+      {/* ══════════════════════════════════════════════════════
+          BANNER AD
+      ══════════════════════════════════════════════════════ */}
+      <View style={styles.banner_wrapper}>
+        <CoinlyBanner />
+      </View>
     </SafeAreaView>
   );
 }
@@ -245,7 +253,7 @@ const styles = StyleSheet.create({
   // FAB — Botón flotante
   fab: {
     position: "absolute",
-    bottom: 28,
+    bottom: 90, // Subido para dejar espacio al banner
     right: 24,
     width: 60,
     height: 60,
@@ -264,4 +272,12 @@ const styles = StyleSheet.create({
     lineHeight: 36,
     fontWeight: "300",
   },
+  
+  // Contenedor del banner
+  banner_wrapper: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+    alignItems: "center",
+  }
 });

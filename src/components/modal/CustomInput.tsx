@@ -1,37 +1,37 @@
 ﻿// src/components/modal/CustomInput.tsx
 import React, { useState } from "react";
 import {
-  StyleSheet,
-  Text,
-  TextInput,
-  TextEntradaProps,
-  View,
-  ViewStyle,
+    StyleSheet,
+    Text,
+    TextInput,
+    TextInputProps,
+    View,
+    ViewStyle,
 } from "react-native";
 import { useAppTheme } from "../../hooks/useAppTheme";
 
-interface CustomEntradaProps extends TextEntradaProps {
+interface CustomInputProps extends TextInputProps {
   label?: string;
   containerStyle?: ViewStyle;
   /** Prefijo que se muestra a la izquierda del campo (ej. símbolo de moneda) */
   prefix?: string;
 }
 
-export const CustomInput: React.FC<CustomEntradaProps> = ({
+export const CustomInput: React.FC<CustomInputProps> = ({
   label,
   containerStyle,
   prefix,
-  ...textEntradaProps
+  ...textInputProps
 }) => {
   const { theme, current_colors } = useAppTheme();
   const [isFocused, setIsFocused] = useState(false);
 
-  const borderColor = isFocused
-    ? current_colors.brand
-    : current_colors.border;
+  const borderColor = isFocused ? current_colors.brand : current_colors.border;
 
   const inputBg =
-    theme === "dark" ? current_colors.iconBackground : current_colors.background;
+    theme === "dark"
+      ? current_colors.iconBackground
+      : current_colors.background;
 
   return (
     <View style={[styles.wrapper, containerStyle]}>
@@ -54,26 +54,28 @@ export const CustomInput: React.FC<CustomEntradaProps> = ({
         ]}
       >
         {prefix ? (
-          <Text style={[styles.prefix, { color: current_colors.textSecondary }]}>
+          <Text
+            style={[styles.prefix, { color: current_colors.textSecondary }]}
+          >
             {prefix}
           </Text>
         ) : null}
 
         <TextInput
-          {...textEntradaProps}
+          {...textInputProps}
           style={[
             styles.input,
             { color: current_colors.textPrimary },
-            textEntradaProps.style,
+            textInputProps.style,
           ]}
           placeholderTextColor={current_colors.textSecondary}
           onFocus={(e) => {
             setIsFocused(true);
-            textEntradaProps.onFocus?.(e);
+            textInputProps.onFocus?.(e);
           }}
           onBlur={(e) => {
             setIsFocused(false);
-            textEntradaProps.onBlur?.(e);
+            textInputProps.onBlur?.(e);
           }}
         />
       </View>

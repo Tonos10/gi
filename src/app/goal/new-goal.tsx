@@ -25,6 +25,7 @@
  */
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
@@ -52,14 +53,14 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTranslation } from "react-i18next";
 
 import { CalendarioMeta } from "../../components/CalendarioMeta";
 import { FilaInterruptor } from "../../components/FilaInterruptor";
+import { scheduleMonthlyReminders } from "../../core/notifications";
 import { useAppTheme } from "../../hooks/useAppTheme";
 import { useCalendar } from "../../hooks/useCalendar";
 import { useGoalImagePicker } from "../../hooks/useGoalImagePicker";
-import { scheduleMonthlyReminders } from "../../core/notifications";
+import { useInterstitial } from "../../services/ads/hooks/useInterstitial";
 import { useAppStore } from "../../store/useAppStore";
 
 // ─── Constantes de animación ──────────────────────────────────────────────────
@@ -71,7 +72,32 @@ const SPRING_CONFIG = {
   overshootClamping: false,
 };
 
+function setSheetPosition(sharedValue: SharedValue<number>, nextY: number) {
+  "worklet";
+  sharedValue.value = nextY;
+}
 
+function animateSheetSpringTo(sharedValue: SharedValue<number>, nextY: number) {
+  "worklet";
+  sharedValue.value = withSpring(nextY, SPRING_CONFIG);
+}
+
+function animateSheetClose(
+  sharedValue: SharedValue<number>,
+  screenHeight: number,
+  onFinished: () => void,
+) {
+  "worklet";
+  sharedValue.value = withTiming(
+    screenHeight,
+    { duration: 300 },
+    (finished) => {
+      if (finished) {
+        runOnJS(onFinished)();
+      }
+    },
+  );
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -81,6 +107,7 @@ export default function NewGoalScreen() {
   const insets = useSafeAreaInsets();
   const { current_colors } = useAppTheme();
   const { t } = useTranslation();
+  const { registerAction, showNow } = useInterstitial();
 
   // ── Snap points (calculados una vez por render de raíz) ────────────────────
   const SNAP_HALF = SCREEN_H * 0.52; // Panel inicial al ~48% de la pantalla
@@ -122,6 +149,10 @@ export default function NewGoalScreen() {
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
+  useEffect(() => {
+    registerAction();
+  }, [registerAction]);
+
   // ── Handlers ──────────────────────────────────────────────────────────────
   const navigateBack = useCallback(() => router.back(), [router]);
 
@@ -131,9 +162,7 @@ export default function NewGoalScreen() {
   const closeSheet = useCallback(() => {
     if (isClosing) return;
     setIsClosing(true);
-    translateY.value = withTiming(SCREEN_H, { duration: 300 }, (finished) => {
-      if (finished) runOnJS(navigateBack)();
-    });
+    animateSheetClose(translateY, SCREEN_H, navigateBack);
   }, [SCREEN_H, navigateBack, translateY, isClosing]);
 
   const toggle_dia_handler = useCallback((dia: number) => {
@@ -146,10 +175,7 @@ export default function NewGoalScreen() {
 
   const guardar_meta_handler = async () => {
     if (!meta_nombre.trim() || !meta_ahorro.trim()) {
-      Alert.alert(
-        t('common.error'),
-        t('goals.error_required_fields'),
-      );
+      Alert.alert(t("common.error"), t("goals.error_required_fields"));
       return;
     }
 
@@ -162,24 +188,29 @@ export default function NewGoalScreen() {
       icon: "🐷",
       photoUri: foto_uri ?? null,
       hasTargetDate: tiene_fecha_objetivo,
-      targetDate: tiene_fecha_objetivo && fecha_objetivo ? fecha_objetivo.toISOString() : undefined,
+      targetDate:
+        tiene_fecha_objetivo && fecha_objetivo
+          ? fecha_objetivo.toISOString()
+          : undefined,
       hasReminder: recordatorio_activo,
       reminderDays: dias_seleccionados,
       createdAt: new Date().toISOString(),
     });
-    
+
     // Programar notificaciones si están activas
     if (recordatorio_activo && dias_seleccionados.length > 0) {
       const reminderTime = useAppStore.getState().settings.reminderTime;
       await scheduleMonthlyReminders(
-        id, 
-        meta_nombre.trim(), 
-        dias_seleccionados, 
-        reminderTime
+        id,
+        meta_nombre.trim(),
+        dias_seleccionados,
+        reminderTime,
       );
     }
 
-    closeSheet();
+    showNow().finally(() => {
+      closeSheet();
+    });
   };
 
   // ── Gesture del drag handle (corre en el UI thread) ───────────────────────
@@ -196,36 +227,30 @@ export default function NewGoalScreen() {
    */
   const panGesture = Gesture.Pan()
     .onBegin(() => {
-      savedY.value = translateY.value;
+      setSheetPosition(savedY, translateY.value);
     })
     .onUpdate((event) => {
       const nextY = savedY.value + event.translationY;
-      translateY.value = Math.max(0, nextY);
+      setSheetPosition(translateY, Math.max(0, nextY));
     })
     .onEnd((event) => {
       const currentY = translateY.value;
       if (event.velocityY > 600 || currentY > CLOSE_THRESHOLD) {
-        translateY.value = withTiming(
-          SCREEN_H,
-          { duration: 300 },
-          (finished) => {
-            if (finished) runOnJS(navigateBack)();
-          },
-        );
+        animateSheetClose(translateY, SCREEN_H, navigateBack);
       } else if (event.velocityY < -300 || currentY < SNAP_HALF * 0.65) {
-        translateY.value = withSpring(0, SPRING_CONFIG);
+        animateSheetSpringTo(translateY, 0);
       } else {
-        translateY.value = withSpring(SNAP_HALF, SPRING_CONFIG);
+        animateSheetSpringTo(translateY, SNAP_HALF);
       }
     });
 
   // ── Animación Reactiva (State-Driven) ──────────────────────────────────────
   useEffect(() => {
     if (isClosing) return;
-    
+
     // Si el teclado está abierto, expandir al 100%. Si no, ir a SNAP_HALF.
     const targetY = isKeyboardVisible ? SNAP_FULL : SNAP_HALF;
-    
+
     // Retraso ligero para permitir que la UI de Android se estabilice al volver de la cámara
     const timer = setTimeout(() => {
       // TRUCO VITAL: Si el panel ya estaba en el destino (ej. a la mitad de la pantalla),
@@ -233,19 +258,28 @@ export default function NewGoalScreen() {
       // desincronizó la vista al abrir la galería, necesitamos FORZAR el repintado.
       // Modificamos el valor por 1 píxel imperceptible para obligar a Reanimated a despertar.
       if (Math.abs(translateY.value - targetY) < 2) {
-        translateY.value = targetY + 1;
+        setSheetPosition(translateY, targetY + 1);
       }
-      
-      translateY.value = withSpring(targetY, SPRING_CONFIG);
+
+      animateSheetSpringTo(translateY, targetY);
     }, 100);
-    
+
     return () => clearTimeout(timer);
-  }, [isClosing, isKeyboardVisible, SNAP_HALF, SNAP_FULL, translateY, refreshTick]);
+  }, [
+    isClosing,
+    isKeyboardVisible,
+    SNAP_HALF,
+    SNAP_FULL,
+    translateY,
+    refreshTick,
+  ]);
 
   // ── Listener del teclado ───────────────────────────────────────────────────
   useEffect(() => {
-    const SHOW_EV = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const HIDE_EV = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const SHOW_EV =
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const HIDE_EV =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
 
     const onShow = Keyboard.addListener(SHOW_EV, (e) => {
       setKeyboardHeight(e.endCoordinates.height);
@@ -261,7 +295,6 @@ export default function NewGoalScreen() {
       onShow.remove();
       onHide.remove();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Estilos animados ───────────────────────────────────────────────────────
@@ -375,14 +408,14 @@ export default function NewGoalScreen() {
                 { color: current_colors.textSecondary },
               ]}
             >
-              {t('common.cancel')}
+              {t("common.cancel")}
             </Text>
           </TouchableOpacity>
 
           <Text
             style={[styles.header_title, { color: current_colors.textPrimary }]}
           >
-            {t('goals.new_goal')}
+            {t("goals.new_goal")}
           </Text>
 
           <TouchableOpacity
@@ -396,7 +429,7 @@ export default function NewGoalScreen() {
                 { color: current_colors.brand, fontWeight: "700" },
               ]}
             >
-              {t('common.save')}
+              {t("common.save")}
             </Text>
           </TouchableOpacity>
         </View>
@@ -434,7 +467,7 @@ export default function NewGoalScreen() {
                 Keyboard.dismiss();
                 await pick_image();
                 // Forzar la re-ejecución del useEffect para despertar a Reanimated
-                setRefreshTick(prev => prev + 1);
+                setRefreshTick((prev) => prev + 1);
               }}
               activeOpacity={0.8}
             >
@@ -475,7 +508,7 @@ export default function NewGoalScreen() {
                   { color: current_colors.textSecondary },
                 ]}
               >
-                {t('goals.main_info')}
+                {t("goals.main_info")}
               </Text>
               <View style={[styles.card, cardStyle]}>
                 <View
@@ -492,7 +525,7 @@ export default function NewGoalScreen() {
                       styles.text_input,
                       { color: current_colors.textPrimary },
                     ]}
-                    placeholder={t('goals.goal_name')}
+                    placeholder={t("goals.goal_name")}
                     placeholderTextColor={current_colors.textSecondary}
                     value={meta_nombre}
                     onChangeText={set_meta_nombre}
@@ -513,7 +546,7 @@ export default function NewGoalScreen() {
                       styles.text_input,
                       { color: current_colors.textPrimary },
                     ]}
-                    placeholder={`${currency_symbol} ${t('goals.financial_target')}`}
+                    placeholder={`${currency_symbol} ${t("goals.financial_target")}`}
                     placeholderTextColor={current_colors.textSecondary}
                     keyboardType="numeric"
                     value={meta_ahorro}
@@ -527,7 +560,7 @@ export default function NewGoalScreen() {
                       styles.text_input,
                       { color: current_colors.textPrimary },
                     ]}
-                    placeholder={`${currency_symbol} ${t('goals.initial_savings')}`}
+                    placeholder={`${currency_symbol} ${t("goals.initial_savings")}`}
                     placeholderTextColor={current_colors.textSecondary}
                     keyboardType="numeric"
                     value={ahorro_inicial}
@@ -546,12 +579,12 @@ export default function NewGoalScreen() {
                   { color: current_colors.textSecondary },
                 ]}
               >
-                {t('goals.planning')}
+                {t("goals.planning")}
               </Text>
               <View style={[styles.card, cardStyle]}>
                 <View style={styles.switch_row_wrapper}>
                   <FilaInterruptor
-                    label={t('goals.set_target_date')}
+                    label={t("goals.set_target_date")}
                     value={tiene_fecha_objetivo}
                     onValueChange={(val) => {
                       set_tiene_fecha_objetivo(val);
@@ -586,7 +619,7 @@ export default function NewGoalScreen() {
                           { color: current_colors.textSecondary },
                         ]}
                       >
-                        {t('goals.tap_to_select_date')}
+                        {t("goals.tap_to_select_date")}
                       </Text>
                     )}
                   </View>
@@ -602,12 +635,12 @@ export default function NewGoalScreen() {
                   { color: current_colors.textSecondary },
                 ]}
               >
-                {t('settings.reminders')}
+                {t("settings.reminders")}
               </Text>
               <View style={[styles.card, cardStyle]}>
                 <View style={styles.switch_row_wrapper}>
                   <FilaInterruptor
-                    label={t('goals.remind_me')}
+                    label={t("goals.remind_me")}
                     value={recordatorio_activo}
                     onValueChange={set_recordatorio_activo}
                   />
@@ -621,7 +654,7 @@ export default function NewGoalScreen() {
                         { color: current_colors.textSecondary },
                       ]}
                     >
-                      {t('goals.select_reminder_days')}
+                      {t("goals.select_reminder_days")}
                     </Text>
                     <View style={styles.grid_container}>
                       {days_array.map((dia) => {

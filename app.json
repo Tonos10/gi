@@ -1,13 +1,17 @@
 {
   "expo": {
-    "name": "Coinly",
-    "slug": "Coinly",
+    "name": "SoinT",
+    "slug": "SoinT",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icono.png",
-    "scheme": "coinly",
+    "scheme": "soint",
     "userInterfaceStyle": "automatic",
     "owner": "anthony117",
+    "notification": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#208AEF"
+    },
     "ios": {
       "icon": "./assets/icono.png"
     },
@@ -18,10 +22,6 @@
         "foregroundImage": "./assets/icono.png"
       },
       "predictiveBackGestureEnabled": false
-    },
-    "notification": {
-      "icon": "./assets/icono-notificacion.png",
-      "color": "#208AEF"
     },
     "web": {
       "output": "static",
@@ -38,9 +38,16 @@
         }
       ],
       [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-8770610388319332~4020475367",
+          "iosAppId": "ca-app-pub-8770610388319332~4020475367"
+        }
+      ],
+      [
         "expo-notifications",
         {
-          "icon": "./assets/icono-notificacion.png",
+          "icon": "./assets/notification-icon.png",
           "color": "#208AEF"
         }
       ],

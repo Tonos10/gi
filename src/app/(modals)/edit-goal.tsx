@@ -1,7 +1,7 @@
 // app/(modals)/edit-goal.tsx
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Image,
@@ -12,18 +12,23 @@ import {
   View,
 } from "react-native";
 
+import { FilaInterruptor } from "../../components/FilaInterruptor";
 import { CustomInput } from "../../components/modal/CustomInput";
 import { DangerButton } from "../../components/modal/DangerButton";
 import { ModalCard } from "../../components/modal/ModalCard";
 import { ModalHeader } from "../../components/modal/ModalHeader";
-import { FilaInterruptor } from '../../components/FilaInterruptor';
-import { scheduleMonthlyReminders, cancelGoalNotifications } from "../../core/notifications";
+import {
+  cancelGoalNotifications,
+  scheduleMonthlyReminders,
+} from "../../core/notifications";
 import { useAppTheme } from "../../hooks/useAppTheme";
+import { useInterstitial } from "../../services/ads/hooks/useInterstitial";
 import { useAppStore } from "../../store/useAppStore";
 
 export default function EditGoalModal() {
   const router = useRouter();
   const { current_colors } = useAppTheme();
+  const { registerAction, showNow } = useInterstitial();
 
   const { goalId: goal_id } = useLocalSearchParams<{ goalId: string }>();
   const {
@@ -51,12 +56,18 @@ export default function EditGoalModal() {
     current_goal?.reminderDays || [],
   );
 
-  if (!current_goal) return null;
-
   // ── Handlers ────────────────────────────────────────────────────────────────
 
-  const close_modal_handler = () => {
+  // Registrar acción en mount para ir precargando
+  useEffect(() => {
+    registerAction();
+  }, [registerAction]);
+
+  const close_modal_handler = async () => {
     set_modal_visible(false);
+
+    // Mostramos el anuncio antes de navegar hacia atrás si hubo un cambio (o siempre que se cierre)
+    // Para no mostrarlo si cancela sin hacer nada, lo mostramos en el submit en lugar de aquí.
     setTimeout(() => router.back(), 250);
   };
 
@@ -92,6 +103,8 @@ export default function EditGoalModal() {
   };
 
   const save_data_handler = () => {
+    if (!current_goal) return;
+
     if (!meta_nombre.trim() || !meta_ahorro.trim()) {
       Alert.alert(
         "Datos incompletos",
@@ -99,32 +112,42 @@ export default function EditGoalModal() {
       );
       return;
     }
+    const id = current_goal.id;
 
-    update_goal(current_goal.id, {
+    update_goal(id, {
       name: meta_nombre.trim(),
       targetAmount: parseFloat(meta_ahorro) || 0,
       photoUri: foto_uri,
       hasReminder: recordatorio_activo,
       reminderDays: dias_seleccionados,
     });
-    
+
     // Configurar notificaciones actualizadas
     if (recordatorio_activo && dias_seleccionados.length > 0) {
       const reminderTime = useAppStore.getState().settings.reminderTime;
       scheduleMonthlyReminders(
-        current_goal.id,
+        id,
         meta_nombre.trim(),
         dias_seleccionados,
-        reminderTime
+        reminderTime,
       ).catch(console.error);
     } else {
-      cancelGoalNotifications(current_goal.id).catch(console.error);
+      cancelGoalNotifications(id).catch(console.error);
     }
 
-    close_modal_handler();
+    set_modal_visible(false);
+
+    // Intenta mostrar el anuncio y luego navega
+    showNow().finally(() => {
+      setTimeout(() => router.back(), 250);
+    });
   };
 
   const delete_goal_handler = () => {
+    if (!current_goal) return;
+
+    const id = current_goal.id;
+
     Alert.alert(
       "Eliminar meta",
       "¿Estás seguro de que deseas borrar esto? Esta acción es irreversible.",
@@ -135,10 +158,10 @@ export default function EditGoalModal() {
           style: "destructive",
           onPress: () => {
             set_modal_visible(false);
-            router.navigate('/(tabs)');
-            cancelGoalNotifications(current_goal.id).catch(console.error);
+            router.navigate("/(tabs)");
+            cancelGoalNotifications(id).catch(console.error);
             setTimeout(() => {
-              delete_goal(current_goal.id);
+              delete_goal(id);
             }, 300);
           },
         },
@@ -191,11 +214,10 @@ export default function EditGoalModal() {
 
   // ── JSX ──────────────────────────────────────────────────────────────────────
 
+  if (!current_goal) return null;
+
   return (
-    <ModalCard
-      isVisible={modal_visible}
-      onClose={close_modal_handler}
-    >
+    <ModalCard isVisible={modal_visible} onClose={close_modal_handler}>
       {/* Cabecera fija: [Cancelar] [Editar Meta] [Guardar] */}
       <ModalHeader
         title="Editar Meta"
@@ -238,7 +260,10 @@ export default function EditGoalModal() {
 
         {/* ── Sección: Información de la meta ─────────────────────────────── */}
         <Text
-          style={[styles.section_title, { color: current_colors.textSecondary }]}
+          style={[
+            styles.section_title,
+            { color: current_colors.textSecondary },
+          ]}
         >
           Información de la meta
         </Text>
@@ -299,10 +324,7 @@ export default function EditGoalModal() {
         {/* ── Acciones ────────────────────────────────────────────────────── */}
         {/* Guardar está en el header (arriba derecha). Solo queda Eliminar. */}
         <View style={styles.actions_container}>
-          <DangerButton
-            title="Eliminar Meta"
-            onPress={delete_goal_handler}
-          />
+          <DangerButton title="Eliminar Meta" onPress={delete_goal_handler} />
         </View>
       </ScrollView>
     </ModalCard>

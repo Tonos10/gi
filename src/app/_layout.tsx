@@ -1,35 +1,51 @@
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
-import { LogBox, View } from "react-native";
+import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import mobileAds from "react-native-google-mobile-ads";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { initI18n } from "../core/i18n";
 import { useAppTheme } from "../hooks/useAppTheme";
 import { useLanguageStore } from "../store/useLanguageStore";
 
-// Esto ignorará específicamente ese aviso de deprecación
-LogBox.ignoreLogs(["ImagePicker.MediaTypeOptions"]);
 export default function RootLayout() {
   const { current_colors } = useAppTheme();
-  const hydrate = useLanguageStore((s) => s.hydrate);
   const [isI18nInitialized, setIsI18nInitialized] = useState(false);
+  const { hydrate } = useLanguageStore();
 
   useEffect(() => {
-    // Inicializa i18next y aplica la preferencia guardada (o el locale del sistema).
+    let isMounted = true;
+
     initI18n()
-      .then(() => {
-        hydrate();
-        setIsI18nInitialized(true);
-      })
+      .then(() => hydrate())
       .catch((err) => {
         console.error(err);
-        setIsI18nInitialized(true);
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsI18nInitialized(true);
+        }
       });
+
+    mobileAds()
+      .initialize()
+      .then((adapterStatuses) => {
+        console.log("MobileAds initialized", adapterStatuses);
+      })
+      .catch((err) => {
+        console.error("MobileAds initialization error:", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, [hydrate]);
 
   if (!isI18nInitialized) {
-    return <View style={{ flex: 1, backgroundColor: current_colors.background }} />;
+    return (
+      <View style={{ flex: 1, backgroundColor: current_colors.background }} />
+    );
   }
 
   return (
@@ -45,10 +61,8 @@ export default function RootLayout() {
             headerShown: false,
           }}
         >
-          {/* Pantallas principales */}
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
 
-          {/* Pantallas individuales */}
           <Stack.Screen
             name="goal/[id]"
             options={{
@@ -58,7 +72,6 @@ export default function RootLayout() {
             }}
           />
 
-          {/* Configuraciones */}
           <Stack.Screen
             name="settings"
             options={{
@@ -69,18 +82,16 @@ export default function RootLayout() {
             }}
           />
 
-          {/* Pantalla Nueva Meta — Bottom Sheet animado con Reanimated */}
           <Stack.Screen
             name="goal/new-goal"
             options={{
               presentation: "transparentModal",
-              animation: "none", // La animación de entrada/salida la gestiona Reanimated internamente
+              animation: "none",
               headerShown: false,
               contentStyle: { backgroundColor: "transparent" },
             }}
           />
 
-          {/* Modales */}
           <Stack.Screen
             name="(modals)/add-money"
             options={{
