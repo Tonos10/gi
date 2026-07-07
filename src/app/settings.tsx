@@ -10,7 +10,10 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
+  ActivityIndicator
 } from "react-native";
+import Purchases from 'react-native-purchases';
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LanguageSection } from "../components/LanguageSection";
@@ -25,7 +28,7 @@ export default function SettingsScreen() {
   const { current_colors } = useAppTheme();
   const styles = useMemo(() => get_styles(current_colors), [current_colors]);
 
-  const { settings, updateSettings } = useAppStore();
+  const { settings, updateSettings, isPremium, setIsPremium, isLoading, setIsLoading } = useAppStore();
 
   const [show_time_picker, set_show_time_picker] = useState(false);
   const [show_currency_list, set_show_currency_list] = useState(false);
@@ -102,11 +105,47 @@ export default function SettingsScreen() {
     Linking.openURL(url).catch(() => alert("No se pudo abrir el enlace."));
   };
 
-  const handle_premium = () => {
-    const isPremium = settings.isPremium;
-    updateSettings({ isPremium: !isPremium });
-    alert(!isPremium ? "¡Versión Premium Activada! Se han deshabilitado los anuncios." : "Versión Estándar Activada. Se muestran los anuncios.");
+  const handle_premium = async () => {
+    if (isPremium) {
+      Alert.alert("Premium", "Ya tienes la versión Premium Activa.");
+      return;
+    }
+
+    if (Platform.OS !== 'ios' && Platform.OS !== 'android') {
+      Alert.alert("No disponible", "Las compras solo están disponibles en la aplicación móvil.");
+      return;
+    }
+
+    if (!Purchases.isConfigured()) {
+      Alert.alert("Error", "El sistema de compras no está configurado (faltan credenciales).");
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      const offerings = await Purchases.getOfferings();
+      if (offerings.current !== null && offerings.current.availablePackages.length !== 0) {
+        const packageToBuy = offerings.current.availablePackages[0];
+        const { customerInfo } = await Purchases.purchasePackage(packageToBuy);
+        
+        if (typeof customerInfo.entitlements.active['quitar_anuncios'] !== 'undefined') {
+          setIsPremium(true);
+          useAppStore.getState().setShowAds(false);
+          Alert.alert("¡Éxito!", "¡Versión Premium Activada! Se han deshabilitado los anuncios.");
+        }
+      } else {
+         Alert.alert("Error", "No hay paquetes disponibles.");
+      }
+    } catch (e: any) {
+      if (!e.userCancelled) {
+        Alert.alert("Error", e.message);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+
 
   return (
     <SafeAreaView
@@ -246,13 +285,18 @@ export default function SettingsScreen() {
           <TouchableOpacity
             style={[styles.card, styles.premium_card]}
             onPress={handle_premium}
+            disabled={isLoading}
           >
             <Text style={styles.premium_title}>
-              {settings.isPremium ? "🌟 Versión Premium Activa" : t("settings.premium_title")}
+              {isPremium ? "🌟 Versión Premium Activa" : t("settings.premium_title")}
             </Text>
-            <Text style={styles.premium_desc}>
-              {settings.isPremium ? "Disfruta de la app sin anuncios." : t("settings.premium_desc")}
-            </Text>
+            {isLoading ? (
+              <ActivityIndicator size="small" color={current_colors.brand} style={{ marginTop: 8 }} />
+            ) : (
+              <Text style={styles.premium_desc}>
+                {isPremium ? "Disfruta de la app sin anuncios." : t("settings.premium_desc")}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -271,6 +315,8 @@ export default function SettingsScreen() {
               <Text style={styles.option_label}>{t("settings.privacy_policy")}</Text>
               <Text style={styles.arrow_icon}>›</Text>
             </TouchableOpacity>
+            
+
             <TouchableOpacity
               style={[styles.option_row, styles.border_bottom]}
               onPress={() => open_link("market://details?id=com.coinly")}

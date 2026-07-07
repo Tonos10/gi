@@ -7,12 +7,18 @@ interface AppState {
   goals: Goal[];
   transactions: Transaction[];
   settings: UserSettings;
+  isPremium: boolean;
+  showAds: boolean;
+  isLoading: boolean;
   
   addGoal: (goal: Goal) => void;
   updateGoal: (id: string, updatedData: Partial<Goal>) => void;
   deleteGoal: (id: string) => void;
   addTransaction: (transaction: Transaction) => void;
   updateSettings: (newSettings: Partial<UserSettings>) => void;
+  setIsPremium: (isPremium: boolean) => void;
+  setShowAds: (showAds: boolean) => void;
+  setIsLoading: (isLoading: boolean) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -20,11 +26,13 @@ export const useAppStore = create<AppState>()(
     (set) => ({
       goals: [],
       transactions: [],
+      isPremium: false,
+      showAds: true,
+      isLoading: false,
       settings: {
         theme: 'system',
         currencySymbol: '$',
         reminderTime: '9:00 a.m.',
-        isPremium: false,
       },
 
       addGoal: (goal) => set((state) => ({ 
@@ -62,10 +70,19 @@ export const useAppStore = create<AppState>()(
       updateSettings: (newSettings) => set((state) => ({
         settings: { ...state.settings, ...newSettings }
       })),
+
+      setIsPremium: (isPremium) => set(() => ({ isPremium, showAds: !isPremium })),
+      setShowAds: (showAds) => set(() => ({ showAds })),
+      setIsLoading: (isLoading) => set(() => ({ isLoading })),
     }),
     {
       name: 'coinly-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        goals: state.goals,
+        transactions: state.transactions,
+        settings: state.settings,
+      }),
     }
   )
 );

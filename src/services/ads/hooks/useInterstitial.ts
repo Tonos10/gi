@@ -3,7 +3,7 @@ import { AdManager } from '../AdManager';
 import { useAppStore } from '../../../store/useAppStore';
 
 export function useInterstitial() {
-  const isPremium = useAppStore(state => state.settings.isPremium);
+  const isPremium = useAppStore(state => state.isPremium);
 
   // Sincronizar el estado de Premium con el Singleton para limpieza/inicialización
   useEffect(() => {

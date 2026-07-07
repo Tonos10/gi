@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "SoinT",
-    "slug": "SoinT",
+    "name": "Coinly",
+    "slug": "Coinly",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icono.png",
-    "scheme": "soint",
+    "scheme": "coinly",
     "userInterfaceStyle": "automatic",
-    "owner": "anthony117",
+    "owner": "cobalto",
     "notification": {
       "icon": "./assets/notification-icon.png",
       "color": "#208AEF"
@@ -17,10 +17,12 @@
     },
     "android": {
       "package": "com.anthony117.coinly",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/icono.png"
       },
+      "permissions": ["com.android.vending.BILLING"],
       "predictiveBackGestureEnabled": false
     },
     "web": {
@@ -40,8 +42,7 @@
       [
         "react-native-google-mobile-ads",
         {
-          "androidAppId": "ca-app-pub-8770610388319332~4020475367",
-          "iosAppId": "ca-app-pub-8770610388319332~4020475367"
+          "androidAppId": "ca-app-pub-8770610388319332~4020475367"
         }
       ],
       [
@@ -61,7 +62,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "813c50cf-3227-4734-b814-2d55d2d9e6b5"
+        "projectId": "8bf62684-cae8-4b2d-8cc3-0a37f60b5f87"
       }
     }
   }

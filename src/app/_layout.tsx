@@ -1,13 +1,15 @@
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { View, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import mobileAds from "react-native-google-mobile-ads";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import Purchases from 'react-native-purchases';
 
 import { initI18n } from "../core/i18n";
 import { useAppTheme } from "../hooks/useAppTheme";
 import { useLanguageStore } from "../store/useLanguageStore";
+import { useAppStore } from "../store/useAppStore";
 
 export default function RootLayout() {
   const { current_colors } = useAppTheme();
@@ -36,6 +38,28 @@ export default function RootLayout() {
       .catch((err) => {
         console.error("MobileAds initialization error:", err);
       });
+
+    let isPurchasesConfigured = false;
+    if (Platform.OS === 'android') {
+      Purchases.configure({ apiKey: 'goog_GChEgynHIRKAHAqUujUUlecpDTH' });
+      isPurchasesConfigured = true;
+    } else if (Platform.OS === 'ios' && process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY) {
+      Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY });
+      isPurchasesConfigured = true;
+    }
+
+    if (isPurchasesConfigured) {
+      Purchases.getCustomerInfo()
+        .then((info) => {
+          if (typeof info.entitlements.active['quitar_anuncios'] !== 'undefined') {
+            useAppStore.getState().setIsPremium(true);
+            useAppStore.getState().setShowAds(false);
+          }
+        })
+        .catch((err) => {
+          console.error("RevenueCat initialization error:", err);
+        });
+    }
 
     return () => {
       isMounted = false;

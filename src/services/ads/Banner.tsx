@@ -6,7 +6,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { AdManager } from './AdManager';
 
 export const CoinlyBanner = () => {
-  const isPremium = useAppStore(state => state.settings.isPremium);
+  const isPremium = useAppStore(state => state.isPremium);
   const [error, setError] = useState(false);
 
   // Asegurar que AdManager sincronice el estado Premium
