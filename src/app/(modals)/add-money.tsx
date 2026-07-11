@@ -1,9 +1,11 @@
-﻿// app/(modals)/add-money.tsx
+// app/(modals)/add-money.tsx
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ModalTransaccion } from '../../components/ModalTransaccion';
 
 export default function AddMoneyModal() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { goalId } = useLocalSearchParams<{ goalId: string }>();
 
@@ -22,7 +24,7 @@ export default function AddMoneyModal() {
       onClose={handleClose}
       type="deposit"
       goalId={goalId as string}
-      title="Nuevo Depósito"
+      title={t("goals.new_deposit")}
     />
   );
 }

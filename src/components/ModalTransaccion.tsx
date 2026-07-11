@@ -8,6 +8,7 @@
  */
 import React, { useEffect, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { useAppTheme } from "../hooks/useAppTheme";
 import { useInterstitial } from "../services/ads/hooks/useInterstitial";
 import { useAppStore } from "../store/useAppStore";
@@ -36,6 +37,7 @@ export const ModalTransaccion: React.FC<ModalTransaccionProps> = ({
   title,
   subtitle,
 }) => {
+  const { t } = useTranslation();
   const { current_colors } = useAppTheme();
 
   const addTransaction = useAppStore((state) => state.addTransaction);
@@ -68,19 +70,16 @@ export const ModalTransaccion: React.FC<ModalTransaccionProps> = ({
 
     if (isNaN(numericAmount) || numericAmount <= 0) {
       Alert.alert(
-        "Cantidad inválida",
-        "Por favor, ingresa una cantidad válida mayor a 0.",
+        t("goals.invalid_amount"),
+        t("goals.invalid_amount_msg"),
       );
       return;
     }
 
     if (type === "withdraw" && goal && numericAmount > goal.savedAmount) {
       Alert.alert(
-        "Saldo insuficiente",
-        `No puedes retirar más de lo que tienes ahorrado (${currencySymbol}${goal.savedAmount.toLocaleString(
-          "es-MX",
-          { minimumFractionDigits: 2, maximumFractionDigits: 2 },
-        )}).`,
+        t("goals.insufficient_funds"),
+        t("goals.insufficient_funds_msg", { amount: `${currencySymbol}${goal.savedAmount.toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` })
       );
       return;
     }
@@ -113,10 +112,10 @@ export const ModalTransaccion: React.FC<ModalTransaccionProps> = ({
       })}`
     : `${currencySymbol}0.00`;
 
-  const defaultTitle = isDeposit ? "Nuevo Depósito" : "Retirar Fondos";
+  const defaultTitle = isDeposit ? t("goals.new_deposit") : t("goals.withdraw_funds");
   const defaultSubtitle = goal?.name;
-  const confirmLabel = isDeposit ? "Depositar" : "Retirar";
-  const balanceLabel = isDeposit ? "Saldo actual" : "Disponible";
+  const confirmLabel = isDeposit ? t("goals.deposit") : t("goals.withdraw");
+  const balanceLabel = isDeposit ? t("goals.current_balance") : t("goals.available");
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -127,7 +126,7 @@ export const ModalTransaccion: React.FC<ModalTransaccionProps> = ({
         title={title ?? defaultTitle}
         subtitle={subtitle ?? defaultSubtitle}
         onLeftPress={handleClose}
-        leftLabel="Cancelar"
+        leftLabel={t("common.cancel")}
         onRightPress={handleSave}
         rightLabel={confirmLabel}
         rightColor={actionColor}
@@ -173,7 +172,7 @@ export const ModalTransaccion: React.FC<ModalTransaccionProps> = ({
 
         {/* Input de cantidad */}
         <CustomInput
-          label="Cantidad"
+          label={t("goals.amount")}
           prefix={currencySymbol}
           placeholder="0.00"
           keyboardType="decimal-pad"
@@ -184,8 +183,8 @@ export const ModalTransaccion: React.FC<ModalTransaccionProps> = ({
 
         {/* Input de nota */}
         <CustomInput
-          label="Nota (opcional)"
-          placeholder="Ej. Pago de nómina"
+          label={t("goals.note_optional")}
+          placeholder={t("goals.note_example")}
           value={note}
           onChangeText={setNote}
           returnKeyType="done"

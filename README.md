@@ -41,6 +41,23 @@ This command will move the starter code to the **app-example** directory and cre
 - If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
 - Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
 
+## AdMob para producción
+
+La configuración de anuncios se resuelve desde `app.config.ts` y `src/services/ads/adConfig.ts`.
+
+Variables recomendadas:
+
+- `EXPO_PUBLIC_ADMOB_ANDROID_APP_ID`
+- `EXPO_PUBLIC_ADMOB_IOS_APP_ID`
+- `EXPO_PUBLIC_ADMOB_BANNER_UNIT_ID`
+- `EXPO_PUBLIC_ADMOB_INTERSTITIAL_UNIT_ID`
+- `EXPO_PUBLIC_ADMOB_IOS_BANNER_UNIT_ID`
+- `EXPO_PUBLIC_ADMOB_IOS_INTERSTITIAL_UNIT_ID`
+- `EXPO_PUBLIC_ADMOB_USER_TRACKING_DESCRIPTION`
+- `EXPO_PUBLIC_ADMOB_SKADNETWORK_ITEMS`
+
+Si no defines los IDs de iOS, la app desactiva anuncios en iPhone/iPad para evitar errores de configuración incompleta.
+
 ## Learn more
 
 To learn more about developing your project with Expo, look at the following resources:

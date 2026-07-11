@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { BannerAd, BannerAdSize } from 'react-native-google-mobile-ads';
-import { AdConfig } from './adConfig';
-import { useAppStore } from '../../store/useAppStore';
-import { AdManager } from './AdManager';
+import { useEffect, useState } from "react";
+import { StyleSheet, View } from "react-native";
+import { BannerAd, BannerAdSize } from "react-native-google-mobile-ads";
+import { useAppStore } from "../../store/useAppStore";
+import { AdConfig, areAdsSupported } from "./adConfig";
+import { AdManager } from "./AdManager";
 
 export const CoinlyBanner = () => {
-  const isPremium = useAppStore(state => state.isPremium);
+  const isPremium = useAppStore((state) => state.isPremium);
   const [error, setError] = useState(false);
 
   // Asegurar que AdManager sincronice el estado Premium
@@ -14,7 +14,7 @@ export const CoinlyBanner = () => {
     AdManager.setAdsEnabled(!isPremium);
   }, [isPremium]);
 
-  if (isPremium || error) {
+  if (isPremium || error || !areAdsSupported) {
     return null;
   }
 
@@ -28,7 +28,7 @@ export const CoinlyBanner = () => {
         }}
         onAdFailedToLoad={(err) => {
           // Log detailed error to help debug production issues (e.g. Error code 3)
-          console.warn('Banner failed to load:', err.message, err.code);
+          console.warn("Banner failed to load:", err.message, err.code);
           setError(true);
         }}
       />
@@ -38,9 +38,9 @@ export const CoinlyBanner = () => {
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
   },
 });

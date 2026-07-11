@@ -24,8 +24,10 @@ import {
 import { useAppTheme } from "../../hooks/useAppTheme";
 import { useInterstitial } from "../../services/ads/hooks/useInterstitial";
 import { useAppStore } from "../../store/useAppStore";
+import { useTranslation } from "react-i18next";
 
 export default function EditGoalModal() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { current_colors } = useAppTheme();
   const { registerAction, showNow } = useInterstitial();
@@ -76,7 +78,7 @@ export default function EditGoalModal() {
       await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permission_result.granted === false) {
-      Alert.alert("Oops!", "Necesitamos permisos para acceder a tu galería.");
+      Alert.alert("Oops!", t("goals.permissions_needed"));
       return;
     }
 
@@ -107,8 +109,8 @@ export default function EditGoalModal() {
 
     if (!meta_nombre.trim() || !meta_ahorro.trim()) {
       Alert.alert(
-        "Datos incompletos",
-        "Por favor, ingresa el nombre y tu objetivo financiero.",
+        t("goals.incomplete_data"),
+        t("goals.error_required_fields"),
       );
       return;
     }
@@ -149,12 +151,12 @@ export default function EditGoalModal() {
     const id = current_goal.id;
 
     Alert.alert(
-      "Eliminar meta",
-      "¿Estás seguro de que deseas borrar esto? Esta acción es irreversible.",
+      t("goals.delete_confirm"),
+      t("goals.delete_message"),
       [
-        { text: "Cancelar", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Eliminar",
+          text: t("common.delete"),
           style: "destructive",
           onPress: () => {
             set_modal_visible(false);
@@ -220,12 +222,12 @@ export default function EditGoalModal() {
     <ModalCard isVisible={modal_visible} onClose={close_modal_handler}>
       {/* Cabecera fija: [Cancelar] [Editar Meta] [Guardar] */}
       <ModalHeader
-        title="Editar Meta"
+        title={t("goals.edit_goal")}
         subtitle={current_goal.name}
         onLeftPress={close_modal_handler}
-        leftLabel="Cancelar"
+        leftLabel={t("common.cancel")}
         onRightPress={save_data_handler}
-        rightLabel="Guardar"
+        rightLabel={t("common.save")}
       />
 
       {/* ScrollView ocupa el espacio restante con flexShrink.
@@ -265,18 +267,18 @@ export default function EditGoalModal() {
             { color: current_colors.textSecondary },
           ]}
         >
-          Información de la meta
+          {t("goals.main_info")}
         </Text>
 
         <CustomInput
-          placeholder="Nombre de la meta"
+          placeholder={t("goals.goal_name")}
           value={meta_nombre}
           onChangeText={set_meta_nombre}
           returnKeyType="next"
         />
 
         <CustomInput
-          placeholder={`${currency_symbol} Objetivo financiero`}
+          placeholder={`${currency_symbol} ${t("goals.financial_target")}`}
           keyboardType="numeric"
           value={meta_ahorro}
           onChangeText={set_meta_ahorro}
@@ -290,7 +292,7 @@ export default function EditGoalModal() {
             { color: current_colors.textSecondary, marginTop: 8 },
           ]}
         >
-          Recordatorios
+          {t("settings.reminders")}
         </Text>
 
         <View
@@ -300,7 +302,7 @@ export default function EditGoalModal() {
           ]}
         >
           <FilaInterruptor
-            label="Recuérdame ahorrar"
+            label={t("goals.remind_me")}
             value={recordatorio_activo}
             onValueChange={set_recordatorio_activo}
           />
@@ -314,8 +316,7 @@ export default function EditGoalModal() {
                 { color: current_colors.textSecondary },
               ]}
             >
-              La notificación push será enviada mensualmente en los días
-              seleccionados:
+              {t("goals.select_reminder_days")}
             </Text>
             {render_dias_grid()}
           </View>
@@ -324,7 +325,7 @@ export default function EditGoalModal() {
         {/* ── Acciones ────────────────────────────────────────────────────── */}
         {/* Guardar está en el header (arriba derecha). Solo queda Eliminar. */}
         <View style={styles.actions_container}>
-          <DangerButton title="Eliminar Meta" onPress={delete_goal_handler} />
+          <DangerButton title={t("goals.delete_confirm")} onPress={delete_goal_handler} />
         </View>
       </ScrollView>
     </ModalCard>

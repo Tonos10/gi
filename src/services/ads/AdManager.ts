@@ -1,13 +1,17 @@
 import {
     AdEventType,
+    AdsConsent,
+    AdsConsentStatus,
     InterstitialAd,
     MobileAds,
 } from "react-native-google-mobile-ads";
-import { AdConfig } from "./adConfig";
+import { AdConfig, areAdsSupported } from "./adConfig";
 
 class AdManagerClass {
   private interstitial: InterstitialAd | null = null;
+  private initializationPromise: Promise<void> | null = null;
   private isAdsEnabled: boolean = true;
+  private canRequestAds: boolean = false;
   private loaded: boolean = false;
   private isShowing: boolean = false;
   private retryCount: number = 0;
@@ -17,24 +21,52 @@ class AdManagerClass {
   // Listeners externos para el evento CLOSED
   private closedListeners: (() => void)[] = [];
 
-  constructor() {
-    // Inicialización perezosa (lazy) controlada desde useInterstitial
-    MobileAds()
-      .initialize()
-      .then(() => {
-        console.log("AdMob initialized");
-      });
+  private shouldUseAds() {
+    return areAdsSupported && this.isAdsEnabled && this.canRequestAds;
+  }
+
+  public setCanRequestAds(canRequestAds: boolean) {
+    this.canRequestAds = canRequestAds;
+  }
+
+  private shouldRetryAdError(error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return !message.includes("Unable to obtain a JavascriptEngine");
+  }
+
+  private ensureInitialized() {
+    if (!this.shouldUseAds()) {
+      return Promise.resolve();
+    }
+
+    if (!this.initializationPromise) {
+      this.initializationPromise = MobileAds()
+        .initialize()
+        .then(() => {
+          console.log("AdMob initialized");
+        })
+        .catch((error) => {
+          this.initializationPromise = null;
+          throw error;
+        });
+    }
+
+    return this.initializationPromise;
   }
 
   public setAdsEnabled(enabled: boolean) {
     if (this.isAdsEnabled === enabled) return;
 
     this.isAdsEnabled = enabled;
-    if (!enabled && this.interstitial) {
+    if (!this.shouldUseAds() && this.interstitial) {
       this.cleanup();
-    } else if (enabled && !this.interstitial) {
+    } else if (this.shouldUseAds() && !this.interstitial) {
       this.initInterstitial();
     }
+  }
+
+  public async initialize() {
+    await this.ensureInitialized();
   }
 
   private cleanup() {
@@ -54,7 +86,7 @@ class AdManagerClass {
   }
 
   private initInterstitial() {
-    if (!this.isAdsEnabled) return;
+    if (!this.shouldUseAds()) return;
 
     this.interstitial = InterstitialAd.createForAdRequest(
       AdConfig.interstitialId,
@@ -75,6 +107,10 @@ class AdManagerClass {
         console.warn("Interstitial Ad Error:", error);
         this.loaded = false;
         this.isShowing = false;
+
+        if (!this.shouldRetryAdError(error)) {
+          return;
+        }
 
         // Retry policy simple para evitar loops infinitos
         if (this.retryCount < this.MAX_RETRIES) {
@@ -103,15 +139,30 @@ class AdManagerClass {
   }
 
   public preload() {
-    if (this.isAdsEnabled && this.interstitial && !this.loaded) {
-      this.interstitial.load();
-    } else if (this.isAdsEnabled && !this.interstitial) {
-      this.initInterstitial();
-    }
+    if (!this.shouldUseAds()) return;
+
+    void this.ensureInitialized()
+      .then(() => {
+        if (this.shouldUseAds() && this.interstitial && !this.loaded) {
+          this.interstitial.load();
+        } else if (this.shouldUseAds() && !this.interstitial) {
+          this.initInterstitial();
+        }
+      })
+      .catch((error) => {
+        console.warn("AdMob initialization failed:", error);
+      });
   }
 
   public async showInterstitial(): Promise<boolean> {
-    if (!this.isAdsEnabled) return false;
+    if (!this.shouldUseAds()) return false;
+
+    try {
+      await this.ensureInitialized();
+    } catch (error) {
+      console.warn("AdMob initialization failed:", error);
+      return false;
+    }
 
     // Si no está cargado o ya se está mostrando, no intentamos mostrar y forzamos la carga.
     if (!this.interstitial || !this.loaded || this.isShowing) {
@@ -137,10 +188,36 @@ class AdManagerClass {
   public onAdClosed(callback: () => void): () => void {
     this.closedListeners.push(callback);
     return () => {
-      this.closedListeners = this.closedListeners.filter((cb) => cb !== callback);
+      this.closedListeners = this.closedListeners.filter(
+        (cb) => cb !== callback,
+      );
     };
   }
 }
 
 // Exportar como Singleton
 export const AdManager = new AdManagerClass();
+
+export async function initializeAdsWithConsent() {
+  try {
+    const consentInfo = await AdsConsent.requestInfoUpdate();
+
+    let latestConsentInfo = consentInfo;
+
+    if (
+      consentInfo.isConsentFormAvailable &&
+      consentInfo.status === AdsConsentStatus.REQUIRED
+    ) {
+      latestConsentInfo = await AdsConsent.showForm();
+    }
+
+    AdManager.setCanRequestAds(latestConsentInfo.canRequestAds);
+
+    if (latestConsentInfo.canRequestAds) {
+      await AdManager.initialize();
+      AdManager.preload();
+    }
+  } catch (error) {
+    console.warn("Ads consent initialization failed:", error);
+  }
+}

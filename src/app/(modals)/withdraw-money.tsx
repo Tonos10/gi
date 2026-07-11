@@ -1,9 +1,11 @@
-﻿// app/(modals)/withdraw-money.tsx
+// app/(modals)/withdraw-money.tsx
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ModalTransaccion } from '../../components/ModalTransaccion';
 
 export default function WithdrawMoneyModal() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { goalId } = useLocalSearchParams<{ goalId: string }>();
 
@@ -22,7 +24,7 @@ export default function WithdrawMoneyModal() {
       onClose={handleClose}
       type="withdraw"
       goalId={goalId as string}
-      title="Retirar Fondos"
+      title={t("goals.withdraw_funds")}
     />
   );
 }
